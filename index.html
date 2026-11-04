@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeplewood</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="buttons">
+        <button onclick="moveToLocation('Zandloper', 'naarZandloper')">Zandloper</button>
+        <button onclick="moveToLocation('Duel', 'naarDuel')">Duel</button>
+        <button onclick="moveToLocation('Kompas', 'naarKompas')">Kompas</button>
+        <button onclick="moveToLocation('Midden', 'naarMidden')">Midden</button>
+        <button onclick="moveToLocation('Dobbelsteen', 'naarDobbelsteen')">Dobbelsteen</button>
+        <button onclick="moveToLocation('Sorteerbak', 'naarSorteerbak')">Sorteerbak</button>
+    </div>
+
+    <div id="stage">
+        <!-- Everything in this layer is positioned in MAP PIXELS (the map is 1536 x 1024).
+             main.js scales the whole layer to match the size of the map on screen. -->
+        <div id="widget-layer">
+            <div class="card-stack">
+                <div class="card-outer" id="chart-spring"><div class="card-inner"><div class="card-face card-front"></div><div class="card-face card-back"></div></div></div>
+                <div class="card-outer" id="chart-summer"><div class="card-inner"><div class="card-face card-front"></div><div class="card-face card-back"></div></div></div>
+                <div class="card-outer" id="chart-autumn"><div class="card-inner"><div class="card-face card-front"></div><div class="card-face card-back"></div></div></div>
+                <div class="card-outer" id="chart-winter"><div class="card-inner"><div class="card-face card-front"></div><div class="card-face card-back"></div></div></div>
+
+                <button id="stack-shrink" class="stack-shrink" aria-label="Collapse">&times;</button>
+
+                <div class="stack-plaque">
+                    <p class="plaque-label">Most played season</p>
+                    <strong id="plaque-season"></strong>
+                    <p id="plaque-caption"></p>
+                </div>
+            </div>
+
+            <!-- filter panels (top-right): one wooden panel per active filter, filled in by js/filter.js -->
+            <div id="filter-strip" aria-label="Active filters"></div>
+
+            <div id="playtime-widget" class="playtime-widget" tabindex="0" role="group" aria-label="Playtime filter">
+                <svg id="playtime-svg" viewBox="0 0 440 500" role="group" aria-label="Choose a playtime category"></svg>
+                <div id="playtime-hover-card" class="playtime-hover-card wood" aria-live="polite">
+                    <header>
+                        <h3 id="playtime-hover-title"></h3>
+                        <span id="playtime-hover-count"></span>
+                    </header>
+                    <ol id="playtime-hover-list"></ol>
+                </div>
+                <button id="playtime-close" class="playtime-close" type="button" aria-label="Close playtime filter">&times;</button>
+            </div>
+            <button id="playtime-toggle" class="playtime-toggle" aria-label="Show playtime data" aria-expanded="false">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+            </button>
+
+            <!-- complexity star: the star in the bottom-left sandpit opens the big one -->
+            <button id="star-pin" aria-label="Open the complexity star"><svg viewBox="-390 -390 780 780"></svg></button>
+            <div id="star-popup">
+                <svg id="star-svg" viewBox="-390 -390 780 780"></svg>
+                <button id="star-close" aria-label="Close">&times;</button>
+            </div>
+
+            <!-- arrow button: shrinks the cards and brings in the info windows -->
+            <button id="compact-toggle" aria-label="Show or hide the info windows" aria-expanded="false">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+            </button>
+
+            <!-- info windows (slide in from the bottom) -->
+            <div id="win-band">
+            <div id="win-left">
+                <aside id="win-games" class="info-window wood">
+                    <header>
+                        <div class="win-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6"/></svg></div>
+                        <div><p class="win-kicker">BOARD GAMES</p><h3>Most played board games</h3><p class="win-sub"></p></div>
+                    </header>
+                    <ol class="win-list"></ol>
+                </aside>
+            </div>
+            <div id="win-right">
+                <aside id="win-players" class="info-window wood">
+                    <header>
+                        <div class="win-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M8 21l1.5-8h5L16 21zM9.5 13h5"/></svg></div>
+                        <div><p class="win-kicker">PLAYERS</p><h3>Most active players</h3><p class="win-sub"></p></div>
+                    </header>
+                    <ol class="win-list"></ol>
+                </aside>
+                <aside id="win-wins" class="info-window wood">
+                    <header>
+                        <div class="win-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/></svg></div>
+                        <div><p class="win-kicker">WINNERS</p><h3>Most wins</h3><p class="win-sub"></p></div>
+                    </header>
+                    <ol class="win-list"></ol>
+                </aside>
+            </div>
+            </div>
+
+            <!-- year controls: slider (one year / "All") + dropdown (several years) -->
+            <div id="year-bar">
+                <div class="year-panel wood">
+                    <button id="year-prev" class="wood-btn" aria-label="Previous year">&#8249;</button>
+                    <div class="year-slider-wrap">
+                        <input type="range" id="year-slider" min="0" max="1" step="1" value="1" aria-label="Year">
+                        <div id="year-ticks" class="year-ticks"></div>
+                    </div>
+                    <button id="year-next" class="wood-btn" aria-label="Next year">&#8250;</button>
+                </div>
+                <div class="year-dropdown">
+                    <div id="year-list" class="year-list wood"></div>
+                    <button id="year-dropdown-btn" class="year-dropdown-btn wood" aria-expanded="false" aria-label="Pick several years">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M9 15l2 2 4-4"/></svg>
+                        <span id="year-count">0 years</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <img id="pawn" src="img/DragonMeeple_Red_Shroomy.png" alt="shroomy" class="pionnetje">
+    </div>
+
+    <!-- game-list popup: outside the stage so it stays a normal full-screen overlay -->
+    <div id="game-list-popup" class="popup-overlay">
+        <div class="popup-box">
+            <button id="popup-close" class="popup-close" aria-label="Close">&times;</button>
+            <h3 id="popup-title"></h3>
+            <input type="text" id="popup-search" placeholder="Search games...">
+            <ul id="popup-list"></ul>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/years.js"></script>
+    <script src="js/script.js"></script>
+    <script src="js/windows.js"></script>
+    <script src="js/filter.js"></script>
+    <script src="js/playtime.js"></script>
+    <script src="js/complexity.js"></script>
+</body>
+</html>

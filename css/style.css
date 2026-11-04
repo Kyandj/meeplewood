@@ -1,0 +1,918 @@
+/* ===================== MAP ===================== */
+html { height: 100%; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  background-color: rgb(65, 116, 15);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+#buttons {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+}
+
+/* Always exactly the shape of the map (3:2), as big as fits in the window */
+#stage {
+  position: relative;
+  width: min(100vw, 150vh);
+  aspect-ratio: 3 / 2;
+  background: url("../img/Map.png") center / 100% 100% no-repeat;
+  --map-scale: 1; /* kept up to date by main.js: on-screen map width / 1536 */
+}
+
+.pionnetje {
+  position: absolute;
+  width: 3.5%;                       /* percentage of the map width */
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  will-change: top, left;
+  z-index: 5;                        /* the pawn walks in front of the collapsed stack... */
+}
+
+/* ===================== SEASON CARDS ON THE MAP ===================== */
+
+/* A layer the size of the map image (1536 x 1024 px), scaled to the on-screen
+   map. Inside it, every number below is a pixel position ON THE MAP IMAGE. */
+#widget-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1536px;
+  height: 1024px;
+  transform-origin: 0 0;
+  transform: scale(var(--map-scale));
+  pointer-events: none;              /* clicks fall through to the map, except on the cards */
+  overflow: hidden;                  /* the windows slide in from below the edge of the map */
+  z-index: 4;
+}
+#widget-layer.open, #widget-layer.star-open { z-index: 9; }   /* ...but the opened cards cover the pawn (buttons stay on top) */
+#widget-layer.open .playtime-widget { z-index: 0; }
+
+:root {
+  --card-scale: 0.42; /* 225x400 card -> ~95x168 px. */
+}
+
+/* the small "pin": sits in the right half of the top-right sandpit
+   (pit spans x 1069-1277, y 193-299; the left half is where the pawn lands for "Kaarten") */
+.card-stack {
+  position: absolute;
+  left: 1125px;
+  top: 171px;
+  width: calc(225px * var(--card-scale));
+  height: calc(400px * var(--card-scale));
+  pointer-events: auto;
+}
+
+.card-outer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 225px;
+  height: 400px;
+  transform-origin: top left;
+  transform: scale(var(--card-scale)); /* collapsed, stacked position */
+  transition: transform 0.4s ease, translate 0.25s ease; /* translate = the hover lift below */
+  cursor: pointer;
+  perspective: 1000px;
+}
+
+.card-outer             { z-index: 1; }
+.card-outer.most-played { z-index: 2; }
+.card-outer.flipped     { z-index: 3; }
+
+/* fan out on hover (offsets scaled to the bigger cards) */
+.card-stack:hover:not(.expanded) #chart-spring { transform: translate(-68px, 17px) rotate(-14deg) scale(var(--card-scale)); }
+.card-stack:hover:not(.expanded) #chart-summer { transform: translate(-22px, -5px) rotate(-5deg)  scale(var(--card-scale)); }
+.card-stack:hover:not(.expanded) #chart-autumn { transform: translate(22px, -5px)  rotate(5deg)   scale(var(--card-scale)); }
+.card-stack:hover:not(.expanded) #chart-winter { transform: translate(68px, 17px)  rotate(14deg)  scale(var(--card-scale)); }
+
+/* expanded: the four full-size cards open as a row (x = 252..1237, y = 312..712).
+   The offsets are relative to the stack's corner (1125, 171): 252-1125 = -873, 312-171 = 141, etc.
+   transition-delay has two values: [0] staggers the opening, [1] keeps the hover lift instant. */
+.card-stack.expanded #chart-spring { transform: translate(-873px, 141px) scale(1.06); transition-delay: 0s,    0s; }
+.card-stack.expanded #chart-summer { transform: translate(-624px, 141px) scale(1.06); transition-delay: 0.06s, 0s; }
+.card-stack.expanded #chart-autumn { transform: translate(-375px, 141px) scale(1.06); transition-delay: 0.12s, 0s; }
+.card-stack.expanded #chart-winter { transform: translate(-126px, 141px) scale(1.06); transition-delay: 0.18s, 0s; }
+
+/* hover lift: a card that is not selected (flipped) rises a little to invite a click.
+   The ::after extends the hover area under the card so it doesn't flicker when it lifts. */
+.card-stack.expanded .card-outer:not(.flipped):hover { translate: 0 -22px; }
+.card-stack.expanded .card-outer:not(.flipped)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 30px;
+}
+
+.stack-shrink, #star-close, .playtime-close {
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 4px solid #4b2108;
+  border-radius: 50%;
+  background: #d96700;
+  color: #fff6df;
+  font: bold 26px/1 Arial, sans-serif;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28), 0 2px 5px rgba(0, 0, 0, 0.45);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.stack-shrink:hover, #star-close:hover, .playtime-close:hover {
+  background: #f27b00;
+  transform: scale(1.08);
+}
+
+.stack-shrink {
+  display: none;
+  position: absolute;
+  top: 131px;
+  left: 102px;
+  z-index: 4;
+}
+.card-stack.expanded .stack-shrink { display: block; }
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.card-stack.expanded .card-outer.flipped .card-inner { transform: rotateY(180deg); }
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+
+.card-back {
+  transform: rotateY(180deg);
+  background: white;
+  border: 3px solid #111;
+  border-radius: 22px;
+  box-sizing: border-box;
+  padding: 1.2rem;
+  font-family: sans-serif;
+  overflow: hidden;
+}
+.card-back h3 { margin: 0 0 0.8rem 0; }
+.card-back p  { margin: 0.4rem 0; }
+
+.won  { color: #2e7d32; font-weight: bold; }
+.lost { color: #c62828; font-weight: bold; }
+
+.card-back .total {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #ccc;
+  font-weight: bold;
+  text-decoration: underline;
+  cursor: pointer;
+  width: fit-content;
+}
+
+/* wooden sign under the stack, hover only (shrunk to suit the map) */
+.stack-plaque {
+  position: absolute;
+  top: calc(100% + 22px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 130px;
+  box-sizing: border-box;
+  background: #b9834f;
+  border: 2px solid #6e4524;
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+  font-family: sans-serif;
+  color: #3b2a18;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.card-stack:hover:not(.expanded) .stack-plaque { opacity: 1; pointer-events: auto; }
+
+.stack-plaque .plaque-label { margin: 0; font-size: 9px; }
+.stack-plaque strong { display: block; font-size: 14px; color: #8a4b1f; margin: 2px 0; }
+.stack-plaque #plaque-caption { margin: 0; font-size: 9px; }
+
+/* ===================== GAME-LIST POPUP (unchanged) ===================== */
+.popup-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+.popup-overlay.visible { display: flex; }
+
+.popup-box {
+  background: white;
+  border-radius: 12px;
+  padding: 1.2rem;
+  width: 240px;
+  max-height: 70vh;
+  overflow-y: auto;
+  position: relative;
+  font-family: sans-serif;
+}
+.popup-box h3 { margin: 0 0 0.8rem 0; padding-right: 1.5rem; }
+.popup-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.8rem;
+  border: none;
+  background: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+#popup-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: sans-serif;
+  font-size: 0.95rem;
+}
+#popup-list { list-style: none; margin: 0; padding: 0; }
+#popup-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #eee;
+}
+.game-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-stats { flex-shrink: 0; }
+
+/* ===================== YEAR CONTROLS (slider + dropdown) ===================== */
+/* Same map-pixel layer as the cards: bottom-centre of the map (x 378..1158, y 938..1010) */
+#year-bar {
+  position: absolute;
+  left: 378px;
+  top: 938px;
+  width: 780px;
+  display: flex;
+  gap: 16px;
+  pointer-events: auto;
+  z-index: 10;               /* above the cards, so the dropdown can open over them */
+  font-family: sans-serif;
+}
+
+/* the wooden look, shared with the plaque colours */
+.wood {
+  background:
+    repeating-linear-gradient(90deg, rgba(90, 50, 20, 0.10) 0 2px, transparent 2px 7px),
+    linear-gradient(#c98d55, #b9834f 55%, #a8733f);
+  border: 3px solid #6e4524;
+  border-radius: 14px;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.35);
+  color: #3b2a18;
+  box-sizing: border-box;
+}
+
+.year-panel {
+  flex: 1;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+}
+
+.wood-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 2px solid #4f2f16;
+  border-radius: 9px;
+  background: linear-gradient(#c98d55, #a8733f);
+  color: #3b2a18;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+.wood-btn:active { transform: translateY(1px); }
+
+.year-slider-wrap { flex: 1; --thumb: 22px; }
+
+#year-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 30px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+#year-slider::-webkit-slider-runnable-track {
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid #6e4524;
+  border-radius: 6px;
+  background: linear-gradient(#fbeedd, #e6cfae);
+}
+#year-slider::-moz-range-track {
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid #6e4524;
+  border-radius: 6px;
+  background: linear-gradient(#fbeedd, #e6cfae);
+}
+#year-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: var(--thumb);
+  height: 30px;
+  margin-top: -9px;           /* centres the 30px thumb on the 12px track */
+  border: 2px solid #4f2f16;
+  border-radius: 6px;
+  background: repeating-linear-gradient(90deg, rgba(90, 50, 20, 0.15) 0 2px, transparent 2px 5px), linear-gradient(#d9a066, #a8733f);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+}
+#year-slider::-moz-range-thumb {
+  box-sizing: border-box;
+  width: var(--thumb);
+  height: 30px;
+  border: 2px solid #4f2f16;
+  border-radius: 6px;
+  background: linear-gradient(#d9a066, #a8733f);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+}
+/* while the dropdown ticks are in charge, the slider thumb is greyed out */
+#year-slider.multi::-webkit-slider-thumb { filter: grayscale(1) opacity(0.55); }
+#year-slider.multi::-moz-range-thumb     { filter: grayscale(1) opacity(0.55); }
+
+/* the labels sit exactly under the stops of the slider */
+.year-ticks { position: relative; height: 18px; }
+.year-ticks .tick {
+  position: absolute;
+  top: 2px;
+  left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--i) / var(--n));
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.year-ticks .tick.active { opacity: 1; color: #fff3e0; text-shadow: 0 1px 2px #3b2a18; }
+
+/* dropdown */
+.year-dropdown { position: relative; width: 124px; flex-shrink: 0; }
+
+.year-dropdown-btn {
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.year-list {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);    /* opens upwards, over the map */
+  width: 140px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px 4px;
+  scrollbar-color: #8a8a8a #f1e7da;
+}
+.year-dropdown.open .year-list { display: block; }
+
+.year-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.year-list input { accent-color: #6e4524; width: 15px; height: 15px; margin: 0; cursor: pointer; }
+
+/* ===================== WINDOW MODE: shrunk cards + info windows ===================== */
+
+/* Cards shrink to 0.78 and sit on the middle line of the map, centre y = 512 like the windows,
+   leaving room for a window on each side. Offsets are relative to the stack corner (1125, 171). */
+.card-stack.expanded.compact .card-outer { transition-duration: 0.6s, 0.25s; }
+.card-stack.expanded.compact #chart-spring { transform: translate(-766px, 185px) scale(0.78);    transition-delay: 0s, 0s; }
+.card-stack.expanded.compact #chart-summer { transform: translate(-571.8px, 185px) scale(0.78);  transition-delay: 0s, 0s; }
+.card-stack.expanded.compact #chart-autumn { transform: translate(-377.6px, 185px) scale(0.78);  transition-delay: 0s, 0s; }
+.card-stack.expanded.compact #chart-winter { transform: translate(-183.4px, 185px) scale(0.78);  transition-delay: 0s, 0s; }
+
+/* the close button follows the card row, so it never sits behind a window */
+.stack-shrink { transition: left 0.5s ease, top 0.5s ease; }
+.card-stack.compact .stack-shrink { left: -20px; top: 168px; }   /* = on the top-right corner of the shrunk winter card, clear of the windows and the filter tile */
+
+/* the round arrow button at the bottom of the map */
+#compact-toggle {
+  display: none;
+  position: absolute;
+  left: 746px;
+  top: 874px;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 3px solid #fff3e0;
+  border-radius: 50%;
+  background: linear-gradient(#d9a066, #a8733f);
+  color: #3b2a18;
+  box-shadow: 0 0 0 2px #3b2a18, 0 3px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 10;
+}
+#widget-layer.open #compact-toggle, #widget-layer.star-open #compact-toggle { display: flex; }
+#compact-toggle svg { transition: transform 0.4s ease; }
+#compact-toggle svg { transform: rotate(180deg); }
+#widget-layer.windows-open #compact-toggle svg,
+#widget-layer.playtime-windows-open #playtime-toggle svg { transform: rotate(0); }
+
+/* the windows */
+/* One band across the map, centred on the same line as the cards (y = 512). The left window and the
+   right column stretch to the same height, so their top and bottom edges line up with each other. */
+#win-band {
+  position: absolute;
+  left: 20px;
+  width: 1496px;
+  top: 512px;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  z-index: 8;
+  pointer-events: none;
+}
+#win-left, #win-right { width: 340px; display: flex; flex-direction: column; gap: 16px; }
+
+.info-window {
+  width: 340px;
+  flex: 1;                 /* the two right windows share their column equally */
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px 14px;
+  font-family: Georgia, "Times New Roman", serif;
+  pointer-events: auto;
+  /* parked below the map and hidden until the arrow button is pressed */
+  visibility: hidden;
+  transform: translateY(1100px);
+  transition: transform 0.65s cubic-bezier(0.2, 0.85, 0.25, 1), visibility 0s 0.65s;
+}
+#widget-layer.windows-open .info-window {
+  visibility: visible;
+  transform: translateY(0);
+  transition: transform 0.65s cubic-bezier(0.2, 0.85, 0.25, 1), visibility 0s 0s;
+}
+#widget-layer.windows-open #win-players { transition-delay: 0.1s, 0s; }
+#widget-layer.windows-open #win-wins    { transition-delay: 0.2s, 0s; }
+
+#widget-layer.playtime-windows-open #win-band {
+  left: 20px;
+  width: 1496px;
+  top: 512px;
+  height: 500px;
+  z-index: 8;
+}
+
+#widget-layer.playtime-windows-open .info-window {
+  visibility: visible;
+  transform: translateY(0);
+  transition: transform 0.65s cubic-bezier(0.2, 0.85, 0.25, 1), visibility 0s 0s;
+}
+
+#widget-layer.playtime-windows-open #win-players { transition-delay: 0.1s, 0s; }
+#widget-layer.playtime-windows-open #win-wins    { transition-delay: 0.2s, 0s; }
+
+#widget-layer.playtime-windows-open #win-left {
+  position: absolute;
+  left: 0;
+  width: 380px;
+  height: 500px;
+}
+
+#widget-layer.playtime-windows-open #win-right {
+  position: absolute;
+  right: 0;
+  width: 340px;
+  height: 500px;
+}
+
+#widget-layer.playtime-windows-open #win-games {
+  width: 380px;
+}
+
+#widget-layer.playtime-windows-open #win-players,
+#widget-layer.playtime-windows-open #win-wins {
+  width: 340px;
+}
+
+.info-window header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.win-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #4f2f16;
+  border-radius: 10px;
+  background: linear-gradient(#d9a066, #a8733f);
+}
+.info-window h3 { margin: 2px 0 2px; font-size: 21px; line-height: 1.2; color: #3b2a18; }
+.win-kicker { margin: 0; font: bold 9px sans-serif; letter-spacing: 0.18em; color: #6e4524; }
+.win-sub    { margin: 0; font: 11px sans-serif; opacity: 0.75; }
+
+.win-list { list-style: none; margin: 0; padding: 0; flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
+.win-list li { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; }
+.win-rank { width: 14px; padding-top: 2px; font-size: 12px; opacity: 0.7; }
+.win-body { flex: 1; min-width: 0; }
+.win-top  { display: flex; justify-content: space-between; gap: 8px; }
+.win-name { font-size: 14px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.win-val  { flex-shrink: 0; font: bold 12px sans-serif; padding-top: 2px; }
+.win-bar  { height: 7px; margin-top: 4px; border-radius: 4px; background: rgba(60, 30, 10, 0.25); overflow: hidden; }
+.win-bar div { height: 100%; border-radius: 4px; background: #7a4a22; }
+.win-list .win-empty { font: italic 13px sans-serif; opacity: 0.7; padding: 8px 0; }
+
+/* ===================== FILTER PANELS (top-right corner of the map) ===================== */
+/* One wooden panel per active filter, joined into a strip. The first panel sits in the corner,
+   the next ones attach to its left (row-reverse). No filters = no panels = nothing on screen. */
+#filter-strip {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  flex-direction: row-reverse;
+  pointer-events: none;
+  z-index: 10;
+  font-family: sans-serif;
+}
+
+.filter-panel {
+  height: 46px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 0;              /* square where panels touch... */
+  color: #3b2a18;
+  animation: panel-in 0.35s ease;
+}
+.filter-panel + .filter-panel { margin-right: -3px; }          /* overlap one border, so they share a seam */
+.filter-panel:first-child { border-radius: 0 10px 10px 0; }    /* ...rounded only at the two ends of the strip */
+.filter-panel:last-child  { border-radius: 10px 0 0 10px; }
+.filter-panel:only-child  { border-radius: 10px; }
+@keyframes panel-in { from { opacity: 0; transform: translateX(14px); } }
+
+.filter-panel > img { width: 30px; height: 30px; filter: drop-shadow(0 0 2px rgba(255, 246, 229, 0.95)); } /* keeps the logo readable on the wood */
+.fp-icon { display: flex; }
+.fp-icon svg { width: 22px; height: 22px; }
+.fp-text { display: flex; flex-direction: column; }
+.fp-label { font-size: 8px; font-weight: bold; letter-spacing: 0.14em; color: #6e4524; }
+.fp-value { font-size: 14px; font-weight: bold; line-height: 1.15; white-space: nowrap; }
+
+/* ===================== COMPLEXITY STAR ===================== */
+/* the star in the bottom-left sandpit (pit spans x 146-305, y 734-840). The box is 244 px, so the star itself is ~190 px wide:
+   bigger than the pit, like the other map icons. The star's middle circle is at map (225, 797). */
+#star-pin {
+  position: absolute;
+  left: 103px;
+  top: 675px;
+  width: 244px;
+  height: 244px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: none;                       /* only the star itself is clickable, not the empty corners of its box */
+  transition: transform 0.25s ease;
+}
+#star-pin:hover { transform: scale(1.06) rotate(6deg); }
+#star-pin svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
+/* one look for BOTH stars: the small one in the sandpit and the big pop-up share these values */
+:root {
+  --star-base: #f6c453;       /* fragment colour */
+  --star-hover: #ffd978;
+  --star-line: #4a2a12;       /* outline */
+  --star-stroke: 16;          /* outline thickness (in star units, so it scales with the star) */
+  --star-hub: #ffeab5;        /* centre circle */
+  --star-hub-hover: #fff6dc;
+  --star-fill: #c47f00;       /* the darker fill that shows how many plays (on both stars) */
+}
+
+/* the pop-up: 600 x 600 centred on the star's middle circle (768, 540). Closed, it is a small star over the sandpit. */
+#star-popup {
+  position: absolute;
+  left: 468px;
+  top: 240px;
+  width: 600px;
+  height: 600px;
+  pointer-events: none;                       /* the empty space around the star lets clicks through to the map */
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-543px, 257px) scale(0.3);    /* = from the star in the sandpit (225, 797) */
+  transition: transform 0.6s cubic-bezier(0.2, 0.85, 0.25, 1), opacity 0.35s ease, visibility 0s 0.6s;
+}
+#star-popup.open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: transform 0.6s cubic-bezier(0.2, 0.85, 0.25, 1), opacity 0.35s ease, visibility 0s 0s;
+}
+/* window mode (the arrow button): the star shrinks a little and moves down, the info windows slide in */
+#star-popup.open.compact { transform: translateY(34px) scale(0.82); }
+#star-svg { width: 100%; height: 100%; overflow: visible; }
+
+/* both stars (the pop-up and the small one in the sandpit) are drawn by the same code and share this look */
+.star-root .base, .star-root .star-hub { pointer-events: all; cursor: pointer; }   /* a click on the small star bubbles up to its button */
+.star-root .fill, .star-root .won, .star-root .outline { pointer-events: none; }
+.star-root .base    { fill: var(--star-base); transition: fill 0.3s ease, fill-opacity 0.3s ease; }
+#star-svg .base:hover { fill: var(--star-hover); }
+.star-root .fill    { fill: var(--star-fill); transition: fill-opacity 0.3s ease; }
+.star-root .outline { fill: none; stroke: var(--star-line); stroke-width: var(--star-stroke); stroke-linejoin: round; }
+.star-root .won     { stroke: #2fbf71; stroke-width: 6; stroke-dasharray: 9 7; opacity: 0; transition: opacity 0.3s ease; }
+.star-root .won.show { opacity: 1; }
+#star-pin .won { display: none; }   /* too small to read at this size */
+/* once something is selected, the other fragments turn see-through: the light yellow AND the dark yellow get
+   the same setting, and the green line only stays on the fragments that are not see-through */
+.star-root .base.dim, .star-root .fill.dim { fill-opacity: 0.12; }
+.star-root .star-hub { fill: var(--star-hub); stroke: var(--star-line); stroke-width: var(--star-stroke); transition: fill 0.2s ease; }
+#star-svg .star-hub:hover { fill: var(--star-hub-hover); }
+
+#star-close {
+  position: absolute;
+  top: 40px;
+  right: 40px;
+  pointer-events: auto;
+}
+
+/* ===================== PLAYTIME STOPWATCH ===================== */
+.playtime-widget {
+  position: absolute;
+  left: 85px;
+  top: 425px;
+  width: 440px;
+  height: 500px;
+  transform: scale(0.48);
+  transform-origin: top left;
+  opacity: 0.9;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 7;
+  will-change: left, top, transform, opacity;
+  transition: left 0.65s cubic-bezier(0.2, 0.85, 0.25, 1),
+              top 0.65s cubic-bezier(0.2, 0.85, 0.25, 1),
+              transform 0.65s cubic-bezier(0.2, 0.85, 0.25, 1),
+              opacity 0.3s ease;
+}
+
+.playtime-widget.open {
+  left: 583px;
+  top: 302px;
+  transform: scale(0.84);
+  opacity: 1;
+  cursor: default;
+  z-index: 11;
+}
+
+.playtime-widget:not(.open):hover {
+  animation: playtime-hover-spring 0.7s ease-out;
+}
+
+@keyframes playtime-hover-spring {
+  0%, 100% { transform: scale(0.48) translateY(0); }
+  35% { transform: scale(0.48) translateY(-18px); }
+  60% { transform: scale(0.48) translateY(4px); }
+  82% { transform: scale(0.48) translateY(-5px); }
+}
+
+#widget-layer.playtime-open { z-index: 9; }
+
+#playtime-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 5px 3px rgba(0, 0, 0, 0.35));
+}
+
+.playtime-close {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+}
+
+.playtime-widget.open .playtime-close {
+  display: block;
+}
+
+#playtime-toggle {
+  display: none;
+  position: absolute;
+  left: 746px;
+  top: 744px;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 3px solid #fff3e0;
+  border-radius: 50%;
+  background: linear-gradient(#d9a066, #a8733f);
+  color: #3b2a18;
+  box-shadow: 0 0 0 2px #3b2a18, 0 3px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 12;
+}
+
+#widget-layer.playtime-open #playtime-toggle {
+  display: flex;
+}
+
+#widget-layer.playtime-hover-visible #playtime-toggle {
+  visibility: hidden;
+}
+
+#playtime-toggle svg {
+  transform: rotate(180deg);
+  transition: transform 0.4s ease;
+}
+
+.playtime-marker {
+  cursor: pointer;
+  outline: none;
+}
+
+.playtime-marker-glow {
+  fill: #ffc629;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.playtime-marker.selected .playtime-marker-glow,
+.playtime-widget.open .playtime-marker:hover .playtime-marker-glow,
+.playtime-widget.open .playtime-marker:focus .playtime-marker-glow {
+  opacity: 0.72;
+}
+
+.playtime-marker-label {
+  fill: #4a2412;
+  font: bold 20px Georgia, "Times New Roman", serif;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.playtime-marker.selected .playtime-marker-label {
+  fill: #321708;
+}
+
+.playtime-reset {
+  cursor: pointer;
+  outline: none;
+}
+
+.playtime-reset:focus .playtime-crown,
+.playtime-reset:hover .playtime-crown {
+  fill: #f27b00;
+}
+
+.playtime-hand {
+  cursor: pointer;
+}
+
+.playtime-hour-hand {
+  cursor: pointer;
+}
+
+.playtime-hand-hitarea {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 22px;
+  stroke-linecap: round;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.playtime-hand-hub {
+  pointer-events: none;
+}
+
+.playtime-hand:focus, .playtime-hour-hand:focus {
+  outline: none;
+}
+
+.playtime-hand:focus path:not(.playtime-hand-hitarea),
+.playtime-hour-hand:focus path:not(.playtime-hand-hitarea) {
+  filter: drop-shadow(0 0 4px #ffc629);
+}
+
+.playtime-hover-card {
+  display: none;
+  position: absolute;
+  top: 500px;
+  left: 0;
+  width: 440px;
+  padding: 16px 20px 14px;
+  font-family: Georgia, "Times New Roman", serif;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.playtime-hover-card.visible {
+  display: block;
+}
+
+.playtime-hover-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.playtime-hover-card h3 {
+  margin: 0;
+  color: #4b2b16;
+  font: bold 20px/1.2 sans-serif;
+  letter-spacing: 0.12em;
+}
+
+#playtime-hover-count {
+  flex-shrink: 0;
+  font: bold 16px sans-serif;
+}
+
+#playtime-hover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#playtime-hover-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid rgba(75, 43, 22, 0.16);
+  font-size: 19px;
+}
+
+.playtime-hover-rank {
+  width: 20px;
+  flex-shrink: 0;
+  text-align: right;
+  opacity: 0.7;
+}
+
+.playtime-hover-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: bold;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playtime-hover-detail {
+  flex-shrink: 0;
+  font: 16px sans-serif;
+  opacity: 0.8;
+}
+
+#playtime-hover-list .playtime-hover-empty {
+  font-style: italic;
+  opacity: 0.75;
+}
