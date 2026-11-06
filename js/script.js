@@ -179,9 +179,9 @@ function openGamePopup(title, gameCounts, gameNames) {
 // Hide any game whose name doesn't contain what's typed in the search box
 d3.select("#popup-search").on("input", function () {
   const query = this.value.toLowerCase();
-  d3.selectAll("#popup-list li").style("display", function () {
+  d3.selectAll("#popup-list li").classed("filtered-out", function () {
     const name = d3.select(this).select(".game-name").text().toLowerCase();
-    return name.includes(query) ? "" : "none";
+    return !name.includes(query);
   });
 });
 

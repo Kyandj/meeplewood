@@ -95,7 +95,6 @@ function fillWindow(selector, subtitle, rows, one, many) {
   top.append("span").attr("class", "win-name").text(d => d.name);
   top.append("span").attr("class", "win-val").text(d => d.value + " " + (d.value === 1 ? one : many));
   body.append("div").attr("class", "win-bar").append("div")
-    .style("width", "0%")
     .transition().duration(600)
     .style("width", d => (d.value / max * 100) + "%");
 }

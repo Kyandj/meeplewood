@@ -260,6 +260,7 @@ body {
   padding: 0.3rem 0;
   border-bottom: 1px solid #eee;
 }
+#popup-list li.filtered-out { display: none; }
 .game-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-stats { flex-shrink: 0; }
 
@@ -560,7 +561,7 @@ body {
 .win-name { font-size: 14px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .win-val  { flex-shrink: 0; font: bold 12px sans-serif; padding-top: 2px; }
 .win-bar  { height: 7px; margin-top: 4px; border-radius: 4px; background: rgba(60, 30, 10, 0.25); overflow: hidden; }
-.win-bar div { height: 100%; border-radius: 4px; background: #7a4a22; }
+.win-bar div { width: 0; height: 100%; border-radius: 4px; background: #7a4a22; }
 .win-list .win-empty { font: italic 13px sans-serif; opacity: 0.7; padding: 8px 0; }
 
 /* ===================== FILTER PANELS (top-right corner of the map) ===================== */
@@ -725,6 +726,21 @@ body {
   filter: drop-shadow(0 5px 3px rgba(0, 0, 0, 0.35));
 }
 
+.playtime-shadow { fill: #3b2411; opacity: 0.32; }
+.playtime-crown-stem { fill: #d96700; stroke: #4b2108; stroke-width: 9; }
+.playtime-crown-cap { fill: #c95700; stroke: #4b2108; stroke-width: 9; }
+.playtime-knob-stem { fill: none; stroke: #4b2108; stroke-width: 16; stroke-linecap: round; }
+.playtime-knob-base { fill: #4b2108; }
+.playtime-knob-cap { fill: #c95700; }
+.playtime-case-shadow { fill: #4b2108; }
+.playtime-bezel { fill: #a94c00; stroke: #6a2c00; stroke-width: 5; }
+.playtime-dial { fill: #ffcb28; }
+.playtime-face { fill: #fff6df; }
+.playtime-tick { stroke: #8d3f0b; stroke-width: 5; stroke-linecap: round; }
+.playtime-tick.major { stroke-width: 8; }
+.playtime-hour-hand-shape { fill: #8d3f0b; stroke: #4b2108; stroke-width: 3; stroke-linejoin: round; }
+.playtime-minute-hand-shape { fill: #a82418; stroke: #4b2108; stroke-width: 4; stroke-linejoin: round; }
+
 .playtime-close {
   display: none;
   position: absolute;
@@ -778,8 +794,11 @@ body {
 .playtime-marker-glow {
   fill: #ffc629;
   opacity: 0;
+  filter: url(#playtime-marker-shadow);
   transition: opacity 0.2s ease;
 }
+
+.playtime-marker-hit { fill: transparent; }
 
 .playtime-marker.selected .playtime-marker-glow,
 .playtime-widget.open .playtime-marker:hover .playtime-marker-glow,
@@ -829,6 +848,9 @@ body {
 .playtime-hand-hub {
   pointer-events: none;
 }
+
+.playtime-hand-hub-shadow { fill: #4b2108; }
+.playtime-hand-hub-center { fill: #ffca22; }
 
 .playtime-hand:focus, .playtime-hour-hand:focus {
   outline: none;
