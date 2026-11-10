@@ -148,6 +148,7 @@ function drawPlaytimeStopwatch() {
     .attr("transform", d => `translate(${d.x} ${d.y})`)
     .on("click", function (event, d) {
       event.stopPropagation();
+      moveToLocation('Zandloper', 'naarZandloper');
       if (!playtimeWidget.classed("open")) {
         openPlaytime();
         return;
@@ -181,11 +182,13 @@ function drawPlaytimeStopwatch() {
 
   playtimeWidget
     .on("click", function () {
+      moveToLocation('Zandloper', 'naarZandloper');
       if (!this.classList.contains("open")) openPlaytime();
     })
     .on("keydown", function (event) {
       if (!this.classList.contains("open") && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
+        moveToLocation('Zandloper', 'naarZandloper');
         openPlaytime();
       }
     });
@@ -220,6 +223,7 @@ function handlePlaytimeKey(event, option) {
   if (event.key !== "Enter" && event.key !== " ") return;
   event.preventDefault();
   event.stopPropagation();
+  moveToLocation('Zandloper', 'naarZandloper');
   if (option && option.minutes != null) {
     if (!playtimeWidget.classed("open")) {
       openPlaytime();
