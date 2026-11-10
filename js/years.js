@@ -1,11 +1,9 @@
-// Year controls at the bottom of the map:
-//   - wooden slider: ONE year, or "All" (the last stop)
-//   - dropdown: tick SEVERAL years
-// The two take turns: touching the slider clears the ticks, ticking a year
-// takes over from the slider. Whatever changes is reported through onChange(),
-// with a Set of years, or null for "all years".
+// Year controls at the bottom of the map: a slider for a single year (or "All" on its last stop)
+// and a dropdown with checkboxes for picking several years. Only one of them is in charge at a time:
+// moving the slider clears the checkboxes, and ticking a year takes over from the slider.
+// Every change calls onChange with a Set of years, or null when all years are selected.
 function setupYearControls(years, onChange) {
-  const n = years.length;                  // the slider has n + 1 stops: every year, then "All"
+  const n = years.length;                  // one stop per year, plus a last one for "All"
   const labels = years.map(String).concat("All");
   const slider = document.getElementById("year-slider");
   const countEl = document.getElementById("year-count");
@@ -15,9 +13,9 @@ function setupYearControls(years, onChange) {
   slider.min = 0;
   slider.max = n;
   slider.step = 1;
-  slider.value = n;                        // start on "All"
+  slider.value = n;                        // starts on "All"
 
-  // tick labels under the slider (click one to jump there)
+  // year labels under the slider, clicking one moves the slider there
   const ticks = d3.select("#year-ticks").style("--n", Math.max(n, 1));
   ticks.selectAll("span").data(labels).enter().append("span")
     .attr("class", "tick")
@@ -25,7 +23,7 @@ function setupYearControls(years, onChange) {
     .text(d => d)
     .on("click", (event, d) => moveSlider(labels.indexOf(d)));
 
-  // dropdown list: one checkbox per year
+  // one checkbox per year in the dropdown
   const items = d3.select("#year-list").selectAll("label").data(years).enter().append("label");
   items.append("input").attr("type", "checkbox").attr("value", d => d).on("change", function () {
     if (this.checked) checked.add(+this.value); else checked.delete(+this.value);
@@ -40,17 +38,17 @@ function setupYearControls(years, onChange) {
 
   function update() {
     const multi = checked.size > 0;
-    let selection = null;                                           // null = all years
+    let selection = null;                                           // null means all years
     if (multi) selection = new Set(checked);
     else if (+slider.value < n) selection = new Set([years[+slider.value]]);
 
-    slider.classList.toggle("multi", multi);                        // greys the thumb while the ticks are in charge
+    slider.classList.toggle("multi", multi);                        // grey out the slider thumb while the checkboxes are in use
     countEl.textContent = checked.size + (checked.size === 1 ? " year" : " years");
     ticks.selectAll(".tick").classed("active", (d, i) => multi ? checked.has(years[i]) : i === +slider.value);
     onChange(selection);
   }
 
-  // slider (and arrows) take over from the ticks
+  // using the slider or the arrows clears any ticked years
   slider.addEventListener("input", function () {
     checked.clear();
     d3.selectAll("#year-list input").property("checked", false);
@@ -59,7 +57,7 @@ function setupYearControls(years, onChange) {
   document.getElementById("year-prev").addEventListener("click", () => moveSlider(+slider.value - 1));
   document.getElementById("year-next").addEventListener("click", () => moveSlider(+slider.value + 1));
 
-  // open/close the dropdown; clicking anywhere else closes it
+  // the button toggles the dropdown, a click anywhere outside closes it
   const button = document.getElementById("year-dropdown-btn");
   button.addEventListener("click", function () {
     const open = dropdown.classList.toggle("open");
@@ -72,5 +70,5 @@ function setupYearControls(years, onChange) {
     }
   }, true);
 
-  update(); // sets the labels/highlight for the starting state ("All") and reports it once
+  update(); // run once so the labels and the first onChange call match the starting "All" state
 }

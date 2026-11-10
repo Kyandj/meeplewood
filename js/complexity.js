@@ -1,13 +1,14 @@
-// ===== The complexity star =====
-// A pop-up with 10 fragments, clockwise from the top. Big fragments are x.0 - x.4, small ones x.5 - x.9:
-//   top 1.0-1.4 | small 1.5-1.9 | 2.0-2.4 | small 2.5-2.9 | 3.0-3.4 | small 3.5-3.9 | 4.0-4.4 | small 4.5-4.9 | 5.0 | small = unrated (0)
-// Click fragments to filter on them (several at once), click the centre circle to select everything again.
-//   dark yellow fill = how many of your plays are in that range (4% of the plays = 4% of the way to the tip)
-//   green dotted line = how many of those you won (same scale); on every fragment that is not see-through
-//   The small star in the sandpit is a copy of the big one and always shows the same state (fills, selection).
-// The numbers follow the other filters (year, play time, ...) but not the star's own selection.
+// The complexity star: a pop-up with 10 fragments, arranged clockwise starting at the top. The large
+// fragments cover x.0 to x.4 and the small ones between them cover x.5 to x.9, so the order is 1.0-1.4,
+// 1.5-1.9, 2.0-2.4, 2.5-2.9, 3.0-3.4, 3.5-3.9, 4.0-4.4, 4.5-4.9, 5.0 and finally a small one for unrated games.
+// Clicking fragments filters on them (you can pick several), clicking the centre circle clears the selection.
+// The dark yellow fill grows from the centre towards the tip in proportion to the share of plays in that
+// range (4% of the plays fills 4% of the length). The dotted green line is the same for the plays you won,
+// and it is shown on every fragment that isn't faded out.
+// The small star in the sandpit is a second copy of the big one and always shows the same state.
+// The counts follow the other filters (year, play time, ...) but not the star's own selection.
 
-const STAR = { R_BIG: 353, R_SMALL: 262, R0: 44, HUB_R: 36, HUB_STROKE: 16 }; // design units (the svg is 780 x 780); R0 = edge of the centre circle
+const STAR = { R_BIG: 353, R_SMALL: 262, R0: 44, HUB_R: 36, HUB_STROKE: 16 }; // sizes in svg units (the svg is 780 x 780). R0 is where the centre circle ends and the fragments start
 const STAR_FRAGMENTS = [
   { bin: 2,  angle: 0,   big: true,  label: "1.0\u20131.4" },
   { bin: 3,  angle: 36,  big: false, label: "1.5\u20131.9" },
@@ -22,7 +23,7 @@ const STAR_FRAGMENTS = [
 ];
 const selectedBins = new Set();
 
-// outline of one fragment pointing straight up (it gets rotated into place)
+// Path for one fragment pointing straight up. Each fragment is rotated into place when it is drawn.
 function starPolygon(big) {
   const pts = big
     ? [[-21, -46], [-54, -118], [0, -STAR.R_BIG],   [54, -118], [21, -46]]
@@ -31,7 +32,7 @@ function starPolygon(big) {
 }
 const fragLength = f => (f.big ? STAR.R_BIG : STAR.R_SMALL) - STAR.R0;
 
-// "1.0-2.4, 3.5-3.9, unrated" for the filter panel (neighbouring fragments are merged)
+// Text for the filter panel, e.g. "1.0-2.4, 3.5-3.9, unrated". Fragments next to each other are merged into one range.
 function describeComplexityBins(bins) {
   const parts = [];
   const rated = [...bins].filter(b => b >= 2).sort((a, b) => a - b);
@@ -46,10 +47,11 @@ function describeComplexityBins(bins) {
   return parts.join(", ");
 }
 
-// ---- build a star ----
-// Built twice: the big pop-up and the small star in the sandpit are the same drawing (and always show the same
-// state: fills, selection, ...). The layers are drawn one after the other (all colours, all fills, all green
-// lines, all outlines, the centre), so a fragment's colour never paints over another fragment's outline.
+// Draws a star into the given svg. It is called twice, once for the big pop-up and once for the small copy
+// in the sandpit, and only the big one (interactive = true) reacts to clicks. The prefix keeps the clip-path
+// ids of the two copies apart.
+// The drawing is built in layers (base colours, fills, green lines, outlines, centre) instead of one
+// fragment at a time, so a fragment's colour can never paint over its neighbour's outline.
 const rotateOf = f => "rotate(" + f.angle + ")";
 
 function buildStar(svg, prefix, interactive) {
@@ -59,8 +61,8 @@ function buildStar(svg, prefix, interactive) {
   const perFragment = (g, tag) => g.selectAll(tag).data(STAR_FRAGMENTS).enter().append(tag);
 
   STAR_FRAGMENTS.forEach((f, i) => {
-    defs.append("clipPath").attr("id", prefix + "-shape-" + i).append("path").attr("d", starPolygon(f.big));  // the fragment's shape
-    defs.append("clipPath").attr("id", prefix + "-fill-" + i).append("rect")                                  // the part that is filled (grows from the centre)
+    defs.append("clipPath").attr("id", prefix + "-shape-" + i).append("path").attr("d", starPolygon(f.big));  // clips to the fragment's outline
+    defs.append("clipPath").attr("id", prefix + "-fill-" + i).append("rect")                                  // clips to the filled part, which grows outwards from the centre
       .attr("class", "fill-rect").attr("x", -150).attr("width", 300).attr("y", -STAR.R0).attr("height", 0);
   });
 
@@ -81,7 +83,7 @@ function buildStar(svg, prefix, interactive) {
 
   const hub = root.append("circle").attr("class", "star-hub").attr("r", STAR.HUB_R);
 
-  if (interactive) {   // only the big star can be clicked
+  if (interactive) {   // only the big star is clickable
     bases.on("click", function (event, f) {
       if (selectedBins.has(f.bin)) selectedBins.delete(f.bin); else selectedBins.add(f.bin);
       applyStarSelection();
@@ -94,13 +96,13 @@ function buildStar(svg, prefix, interactive) {
 }
 
 const bigStar = buildStar(d3.select("#star-svg"), "big", true);
-const pinStar = buildStar(d3.select("#star-pin svg"), "pin", false);   // the star in the bottom-left sandpit
+const pinStar = buildStar(d3.select("#star-pin svg"), "pin", false);   // the small copy in the bottom-left sandpit
 const allStars = [bigStar, pinStar];
 
-// ---- numbers ----
-// plays per fragment among my plays that pass the OTHER filters (year, the selected season, play time, ...); plays without shelf data can't be placed, so they are left out
+// Counts plays and wins per fragment (bin) for my plays that pass all the other filters (year, season,
+// play time, ...). Plays whose game has no shelf data can't be placed in a fragment, so they are skipped.
 function starStats() {
-  const season = selectedSeason(); // the flipped card, if any
+  const season = selectedSeason(); // null when no card is flipped
   const months = season ? new Set(season.months.map(m => m.num)) : null;
   const plays = new Map(), wins = new Map();
   let total = 0;
@@ -109,8 +111,9 @@ function starStats() {
     const won = myResult(play, myId);
     if (won === null) continue;
     if (!passesYear(play)) continue;
+    if (!passesPlayFilters(play)) continue;
     if (months && !months.has(Number(play.playDate.slice(5, 7)))) continue;
-    if (!passesFilters(play.gameRefId, gameMeta, true)) continue; // true = ignore the star's own selection
+    if (!passesFilters(play.gameRefId, gameMeta, true)) continue; // true leaves out the star's own selection, otherwise every unselected fragment would count as 0
     const meta = gameMeta.get(play.gameRefId);
     if (!meta) continue;
     const bin = complexityBin(meta.complexity);
@@ -121,14 +124,14 @@ function starStats() {
   return { total, plays, wins };
 }
 
-// redraw fills, green lines and the selection look of BOTH stars (called from updateCards)
+// Redraws the fills, green lines and selection look of both stars. Called from updateCards.
 function updateStar() {
   if (allPlays.length === 0) return;
   const { total, plays, wins } = starStats();
   const hasSelection = selectedBins.size > 0;
 
   for (const star of allStars) {
-    // selection look: selected fragments stay solid, the others turn see-through (light AND dark yellow)
+    // selected fragments stay solid, the others fade out (both the light and the dark yellow)
     star.bases.each(function (f) {
       const n = plays.get(f.bin) || 0, w = wins.get(f.bin) || 0;
       const selected = selectedBins.has(f.bin);
@@ -136,15 +139,15 @@ function updateStar() {
       base.select("title").text(f.label + " \u00b7 " + n + " plays (" + Math.round((total ? n / total : 0) * 100) + "%) \u00b7 " + w + " won");
     });
 
-    // dark fill: the share of plays in this range, from the edge of the centre circle towards the tip
+    // dark fill: the share of plays in this range, measured from the centre circle out to the tip
     star.fills.each(function (f, i) {
-      d3.select(this).classed("dim", hasSelection && !selectedBins.has(f.bin)); // see-through exactly like the light yellow
+      d3.select(this).classed("dim", hasSelection && !selectedBins.has(f.bin)); // fades the same way as the light yellow
       const length = (total ? (plays.get(f.bin) || 0) / total : 0) * fragLength(f);
       d3.select("#" + star.prefix + "-fill-" + i + " .fill-rect").transition().duration(600)
         .attr("y", -(STAR.R0 + length)).attr("height", length);
     });
 
-    // green dotted line: the share of plays you won, same scale. Shown on every fragment that is not see-through
+    // green dotted line: the share of plays I won, on the same scale as the fill. Hidden on faded fragments and when there are no wins
     star.wons.each(function (f, i) {
       const w = wins.get(f.bin) || 0;
       const y = -(STAR.R0 + (total ? w / total : 0) * fragLength(f));
@@ -154,16 +157,23 @@ function updateStar() {
   }
 }
 
-// the selection changed: recount the cards, windows, filter panels (and this star) with the new filter
+// The selection changed: store it as a filter and refresh everything that depends on the filters.
 function applyStarSelection() {
   filters.complexityBins = selectedBins.size ? new Set(selectedBins) : null;
   updateCards();
 }
 
-// ---- open / close ----
+// Used by the quick filter menu to set the selection to exactly these fragments. An empty list clears it.
+function setStarSelection(bins) {
+  selectedBins.clear();
+  for (const bin of bins) selectedBins.add(bin);
+  applyStarSelection();
+}
+
 function openStar() {
-  setExpanded(false); // the cards and the star never share the screen
+  setExpanded(false); // only one widget is open at a time, so close the others first
   closePlaytime();
+  closeMiddle();      // the quick filter menu and the info windows
   d3.select("#star-popup").classed("open", true);
   d3.select("#widget-layer").classed("star-open", true);
   updateStar();
@@ -171,13 +181,12 @@ function openStar() {
 function closeStar() {
   d3.select("#star-popup").classed("open", false);
   d3.select("#widget-layer").classed("star-open", false);
-  setCompact(false); // the info windows slide away with it
 }
 d3.select("#star-pin").on("click", function (event) {
   event.stopPropagation();
   if (d3.select("#star-popup").classed("open")) { closeStar(); return; }
   openStar();
-  moveToLocation("Dobbelsteen", "naarDobbelsteen"); // the dragon walks over to the star's sandpit
+  moveToLocation("Dobbelsteen", "naarDobbelsteen"); // the dragon walks to the star's sandpit
 });
 d3.select("#star-close").on("click", closeStar);
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeStar(); });

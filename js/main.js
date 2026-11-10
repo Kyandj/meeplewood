@@ -1,4 +1,4 @@
-// Opslag van jouw specifieke bordcoördinaten in percentages (x%, y%)
+// Spots on the map the dragon can walk to, as x/y percentages of the map size
 const locations = {
   Zandloper:   {naarZandloper:   { x: 11.7, y: 51.3 }},
   Kaarten:     {naarKaarten:     { x: 72.4, y: 25.6 },},
@@ -11,18 +11,13 @@ const locations = {
 
 const start = locations.Midden.naarMidden;
 
-// Zet de pion op de startpositie bij het laden van de pagina
+// The dragon starts in the middle of the map
 d3.select("#pawn")
   .style("left", `${start.x}%`)
   .style("top", `${start.y}%`);
 
-/**
- * Beweegt de pion naar een specifieke locatie.
- * @param {string} locationName - Eerste niveau in 'locations' (bijv. "Duel")
- * @param {string} locationDirection - Tweede niveau in 'locations' (bijv. "naarDuel")
- * @param {number} duration - Duur van de sprong in ms (standaard 800ms)
- * @param {number} hopHeightPercent - Hoogte van de hop in % van de kaart (standaard 6%)
- */
+// Hops the dragon to one of the named spots in `locations`, e.g. moveToLocation("Duel", "naarDuel").
+// duration is in ms, hopHeightPercent is how high the hop arcs as a % of the map height.
 function moveToLocation(locationName, locationDirection, duration = 800, hopHeightPercent = 6) {
   const target = locations[locationName]?.[locationDirection];
   if (!target) {
@@ -32,9 +27,7 @@ function moveToLocation(locationName, locationDirection, duration = 800, hopHeig
   moveToCoordinates(target.x, target.y, duration, hopHeightPercent);
 }
 
-/**
- * Beweegt de pion naar procentuele kaartcoördinaten met een hop.
- */
+// Moves the dragon in a straight line to x/y (as % of the map) with a sine-shaped arc on top, which is the hop.
 function moveToCoordinates(targetXPercent, targetYPercent, duration = 800, hopHeightPercent = 6) {
   const pawn = d3.select("#pawn");
   const startX = parseFloat(pawn.node().style.left);
@@ -58,8 +51,8 @@ function moveToCoordinates(targetXPercent, targetYPercent, duration = 800, hopHe
     });
 }
 
-// Keep the season-card layer (drawn in map pixels, 1536 x 1024) scaled to the
-// map's size on screen, so it stays inside the sandpit at any window size.
+// The widgets are drawn in map pixels (the map image is 1536 px wide). This sets --map-scale
+// so they grow and shrink with the map and stay inside their sandpit at any window size.
 const MAP_IMAGE_WIDTH = 1536;
 const stageEl = document.getElementById("stage");
 function fitWidgetLayer() {

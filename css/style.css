@@ -1,4 +1,7 @@
-/* ===================== MAP ===================== */
+/* --- Map and dragon --- */
+
+/* The page behind the map. html and body fill the whole window, the green background shows around the map
+   when the window isn't 3:2, and the map is centred in the window. */
 html { height: 100%; }
 
 body {
@@ -10,6 +13,7 @@ body {
   place-items: center;
 }
 
+/* A box pinned to the top-left corner of the window, above the map, for the page's buttons. */
 #buttons {
   position: fixed;
   top: 8px;
@@ -17,28 +21,33 @@ body {
   z-index: 10;
 }
 
-/* Always exactly the shape of the map (3:2), as big as fits in the window */
+/* The map. It keeps the 3:2 shape of Map.png and is as big as fits in the window.
+   Everything that sits on the map is positioned inside this box. */
 #stage {
   position: relative;
   width: min(100vw, 150vh);
   aspect-ratio: 3 / 2;
   background: url("../img/Map.png") center / 100% 100% no-repeat;
-  --map-scale: 1; /* kept up to date by main.js: on-screen map width / 1536 */
+  --map-scale: 1;  /* set by main.js: on-screen map width / 1536 */
 }
 
+/* The dragon. Its width is a percentage of the map width, and main.js moves it by changing left and top,
+   which is the point its middle sits on. It ignores clicks and walks in front of the card stack. */
 .pionnetje {
   position: absolute;
-  width: 3.5%;                       /* percentage of the map width */
+  width: 3.5%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   will-change: top, left;
-  z-index: 5;                        /* the pawn walks in front of the collapsed stack... */
+  z-index: 5;
 }
 
-/* ===================== SEASON CARDS ON THE MAP ===================== */
+/* --- Widget layer and season cards --- */
 
-/* A layer the size of the map image (1536 x 1024 px), scaled to the on-screen
-   map. Inside it, every number below is a pixel position ON THE MAP IMAGE. */
+/* A transparent layer laid over the map, 1536 x 1024 px and scaled by --map-scale to match the map on screen.
+   Every pixel value below (cards, menu, windows, star, stopwatch) is a position on the map image.
+   Clicks fall through to the map except on the widgets, and anything parked past the edge of the map is clipped.
+   While everything is closed the layer sits just under the dragon. */
 #widget-layer {
   position: absolute;
   top: 0;
@@ -47,19 +56,26 @@ body {
   height: 1024px;
   transform-origin: 0 0;
   transform: scale(var(--map-scale));
-  pointer-events: none;              /* clicks fall through to the map, except on the cards */
-  overflow: hidden;                  /* the windows slide in from below the edge of the map */
+  pointer-events: none;
+  overflow: hidden;
   z-index: 4;
 }
-#widget-layer.open, #widget-layer.star-open { z-index: 9; }   /* ...but the opened cards cover the pawn (buttons stay on top) */
+
+/* While the cards, the star or the quick filter menu are open, the layer is raised above the dragon
+   so the dragon can't walk over them. */
+#widget-layer.open, #widget-layer.star-open, #widget-layer.quick-open { z-index: 9; }
+
+/* While the cards are open, the parked stopwatch is pushed behind them. */
 #widget-layer.open .playtime-widget { z-index: 0; }
 
+/* Size of the collapsed card stack: a 225 x 400 card is drawn at about 95 x 168 px. */
 :root {
-  --card-scale: 0.42; /* 225x400 card -> ~95x168 px. */
+  --card-scale: 0.42;
 }
 
-/* the small "pin": sits in the right half of the top-right sandpit
-   (pit spans x 1069-1277, y 193-299; the left half is where the pawn lands for "Kaarten") */
+/* The collapsed stack of four season cards, in the right half of the top-right sandpit (the sand patch spans x 1069-1277, y 193-299).
+   The left half of the patch is where the dragon lands when it walks to the cards. The size is one card times --card-scale,
+   and the open row of cards is positioned relative to this box's corner. */
 .card-stack {
   position: absolute;
   left: 1125px;
@@ -69,6 +85,8 @@ body {
   pointer-events: auto;
 }
 
+/* One season card (#chart-spring, #chart-summer, #chart-autumn, #chart-winter). At rest it is scaled down onto the stack.
+   The transition animates the fan-out on hover, the move into the open row and the hover lift. */
 .card-outer {
   position: absolute;
   top: 0;
@@ -76,33 +94,35 @@ body {
   width: 225px;
   height: 400px;
   transform-origin: top left;
-  transform: scale(var(--card-scale)); /* collapsed, stacked position */
-  transition: transform 0.4s ease, translate 0.25s ease; /* translate = the hover lift below */
+  transform: scale(var(--card-scale));  /* collapsed size and position in the stack */
+  transition: transform 0.4s ease, translate 0.25s ease;  /* transform = fan-out and opening, translate = hover lift */
   cursor: pointer;
   perspective: 1000px;
 }
 
+/* Stacking order of the cards: the season with the most plays sits above the others, and the flipped card is on top of all. */
 .card-outer             { z-index: 1; }
 .card-outer.most-played { z-index: 2; }
 .card-outer.flipped     { z-index: 3; }
 
-/* fan out on hover (offsets scaled to the bigger cards) */
+/* Hovering the collapsed stack fans the cards out like a hand of cards: spring leans furthest left, winter furthest right. */
 .card-stack:hover:not(.expanded) #chart-spring { transform: translate(-68px, 17px) rotate(-14deg) scale(var(--card-scale)); }
 .card-stack:hover:not(.expanded) #chart-summer { transform: translate(-22px, -5px) rotate(-5deg)  scale(var(--card-scale)); }
 .card-stack:hover:not(.expanded) #chart-autumn { transform: translate(22px, -5px)  rotate(5deg)   scale(var(--card-scale)); }
 .card-stack:hover:not(.expanded) #chart-winter { transform: translate(68px, 17px)  rotate(14deg)  scale(var(--card-scale)); }
 
-/* expanded: the four full-size cards open as a row (x = 252..1237, y = 312..712).
-   The offsets are relative to the stack's corner (1125, 171): 252-1125 = -873, 312-171 = 141, etc.
-   transition-delay has two values: [0] staggers the opening, [1] keeps the hover lift instant. */
+/* Open view: the four cards spread into one row across the middle of the map (x 252-1237, y 312-712).
+   The offsets are measured from the stack's corner at (1125, 171). The first transition-delay value staggers the opening
+   (spring first, winter last), and the second keeps the hover lift instant. */
 .card-stack.expanded #chart-spring { transform: translate(-873px, 141px) scale(1.06); transition-delay: 0s,    0s; }
 .card-stack.expanded #chart-summer { transform: translate(-624px, 141px) scale(1.06); transition-delay: 0.06s, 0s; }
 .card-stack.expanded #chart-autumn { transform: translate(-375px, 141px) scale(1.06); transition-delay: 0.12s, 0s; }
 .card-stack.expanded #chart-winter { transform: translate(-126px, 141px) scale(1.06); transition-delay: 0.18s, 0s; }
 
-/* hover lift: a card that is not selected (flipped) rises a little to invite a click.
-   The ::after extends the hover area under the card so it doesn't flicker when it lifts. */
+/* In the open row, a card that isn't flipped rises 22 px on hover to show it can be clicked. */
 .card-stack.expanded .card-outer:not(.flipped):hover { translate: 0 -22px; }
+
+/* An invisible strip under each unflipped card that keeps the hover going while the card lifts, so it doesn't flicker. */
 .card-stack.expanded .card-outer:not(.flipped)::after {
   content: "";
   position: absolute;
@@ -112,7 +132,9 @@ body {
   height: 30px;
 }
 
-.stack-shrink, #star-close, .playtime-close {
+/* The round orange cross button, shared by the card row (.stack-shrink), the star pop-up, the stopwatch,
+   the right-hand info window and the quick filter menu. */
+.stack-shrink, #star-close, .playtime-close, #win-close, #qf-close {
   box-sizing: border-box;
   width: 36px;
   height: 36px;
@@ -128,11 +150,13 @@ body {
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.stack-shrink:hover, #star-close:hover, .playtime-close:hover {
+/* Hovering any of those crosses makes it brighter and slightly bigger. */
+.stack-shrink:hover, #star-close:hover, .playtime-close:hover, #win-close:hover, #qf-close:hover {
   background: #f27b00;
   transform: scale(1.08);
 }
 
+/* The cross of the card row. It sits at the top-right corner of the open cards and is hidden until they open. */
 .stack-shrink {
   display: none;
   position: absolute;
@@ -140,8 +164,11 @@ body {
   left: 102px;
   z-index: 4;
 }
+
+/* Shows the cross while the cards are open. */
 .card-stack.expanded .stack-shrink { display: block; }
 
+/* The part of a card that turns. It holds the front and back faces and rotates in 3D when the card is flipped. */
 .card-inner {
   position: relative;
   width: 100%;
@@ -150,14 +177,18 @@ body {
   transform-style: preserve-3d;
 }
 
+/* A selected (flipped) card in the open row turns 180 degrees to show its back. */
 .card-stack.expanded .card-outer.flipped .card-inner { transform: rotateY(180deg); }
 
+/* The front (season artwork) and back (text) lie on top of each other, and each one hides when it faces away. */
 .card-face {
   position: absolute;
   inset: 0;
   backface-visibility: hidden;
 }
 
+/* The back of a card. It starts turned around so it shows after the flip: white paper with a black rounded outline
+   that holds the monthly numbers. */
 .card-back {
   transform: rotateY(180deg);
   background: white;
@@ -168,12 +199,16 @@ body {
   font-family: sans-serif;
   overflow: hidden;
 }
+
+/* Spacing of the heading and the month lines on the back of a card. */
 .card-back h3 { margin: 0 0 0.8rem 0; }
 .card-back p  { margin: 0.4rem 0; }
 
+/* Bold green number for wins and bold red number for losses, on the card backs and in the game list popup. */
 .won  { color: #2e7d32; font-weight: bold; }
 .lost { color: #c62828; font-weight: bold; }
 
+/* The "Total played" line at the bottom of a card back. It is underlined and clickable, and opens the game list popup. */
 .card-back .total {
   margin-top: 1rem;
   padding-top: 0.8rem;
@@ -184,7 +219,8 @@ body {
   width: fit-content;
 }
 
-/* wooden sign under the stack, hover only (shrunk to suit the map) */
+/* The wooden sign under the collapsed stack. It shows the season with the most plays and its count,
+   and is invisible until the stack is hovered. */
 .stack-plaque {
   position: absolute;
   top: calc(100% + 22px);
@@ -203,13 +239,19 @@ body {
   pointer-events: none;
   transition: opacity 0.25s ease;
 }
+
+/* Fades the sign in while the collapsed stack is hovered. */
 .card-stack:hover:not(.expanded) .stack-plaque { opacity: 1; pointer-events: auto; }
 
+/* The text on the sign: a small label, the season name in big brown letters and a small caption. */
 .stack-plaque .plaque-label { margin: 0; font-size: 9px; }
 .stack-plaque strong { display: block; font-size: 14px; color: #8a4b1f; margin: 2px 0; }
 .stack-plaque #plaque-caption { margin: 0; font-size: 9px; }
 
-/* ===================== GAME-LIST POPUP (unchanged) ===================== */
+/* --- Game list popup --- */
+
+/* The dark backdrop over the whole window that centres the game list box. It is hidden until .visible is added,
+   which happens when a card's "Total played" line is clicked. */
 .popup-overlay {
   display: none;
   position: fixed;
@@ -221,6 +263,7 @@ body {
 }
 .popup-overlay.visible { display: flex; }
 
+/* The white rounded box in the middle of the popup. It scrolls when the list is long. */
 .popup-box {
   background: white;
   border-radius: 12px;
@@ -231,7 +274,11 @@ body {
   position: relative;
   font-family: sans-serif;
 }
+
+/* The popup title, with room on the right for the close button. */
 .popup-box h3 { margin: 0 0 0.8rem 0; padding-right: 1.5rem; }
+
+/* The x in the top-right corner of the box. */
 .popup-close {
   position: absolute;
   top: 0.6rem;
@@ -242,6 +289,8 @@ body {
   line-height: 1;
   cursor: pointer;
 }
+
+/* The search field above the list. */
 #popup-search {
   width: 100%;
   box-sizing: border-box;
@@ -252,6 +301,8 @@ body {
   font-family: sans-serif;
   font-size: 0.95rem;
 }
+
+/* The game list: one row per game with the name on the left and played/won/lost on the right, and a thin line between rows. */
 #popup-list { list-style: none; margin: 0; padding: 0; }
 #popup-list li {
   display: flex;
@@ -260,12 +311,15 @@ body {
   padding: 0.3rem 0;
   border-bottom: 1px solid #eee;
 }
-#popup-list li.filtered-out { display: none; }
+
+/* Long game names are cut off with "..." so the numbers on the right always stay visible. */
 .game-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-stats { flex-shrink: 0; }
 
-/* ===================== YEAR CONTROLS (slider + dropdown) ===================== */
-/* Same map-pixel layer as the cards: bottom-centre of the map (x 378..1158, y 938..1010) */
+/* --- Year controls --- */
+
+/* The year bar at the bottom centre of the map (x 378-1158, y 938-1010): the slider panel and the dropdown button side by side.
+   It is raised above the cards so the dropdown list can open over them. */
 #year-bar {
   position: absolute;
   left: 378px;
@@ -274,11 +328,12 @@ body {
   display: flex;
   gap: 16px;
   pointer-events: auto;
-  z-index: 10;               /* above the cards, so the dropdown can open over them */
+  z-index: 10;
   font-family: sans-serif;
 }
 
-/* the wooden look, shared with the plaque colours */
+/* The wooden look: grain stripes, a brown border and a soft shadow. Used wherever a panel should look like wood,
+   for example the year panel and the filter panels. */
 .wood {
   background:
     repeating-linear-gradient(90deg, rgba(90, 50, 20, 0.10) 0 2px, transparent 2px 7px),
@@ -290,6 +345,7 @@ body {
   box-sizing: border-box;
 }
 
+/* The wooden panel with the arrow buttons and the slider. It takes the space left of the dropdown button. */
 .year-panel {
   flex: 1;
   height: 72px;
@@ -299,6 +355,7 @@ body {
   padding: 0 14px;
 }
 
+/* The small square wooden buttons (previous and next year). They move down 1 px while pressed. */
 .wood-btn {
   flex-shrink: 0;
   width: 34px;
@@ -315,8 +372,11 @@ body {
 }
 .wood-btn:active { transform: translateY(1px); }
 
+/* The wrapper around the slider and its labels. --thumb is the width of the slider thumb, which the label positions are calculated from. */
 .year-slider-wrap { flex: 1; --thumb: 22px; }
 
+/* The slider itself. The browser's default look is removed and the background is transparent,
+   so only the custom track and thumb below show. */
 #year-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -327,6 +387,8 @@ body {
   background: transparent;
   cursor: pointer;
 }
+
+/* The slider track: a light cream bar with a brown border. This is the Chrome/Safari version, Firefox has its own rule below. */
 #year-slider::-webkit-slider-runnable-track {
   height: 12px;
   box-sizing: border-box;
@@ -334,6 +396,8 @@ body {
   border-radius: 6px;
   background: linear-gradient(#fbeedd, #e6cfae);
 }
+
+/* The same track for Firefox. */
 #year-slider::-moz-range-track {
   height: 12px;
   box-sizing: border-box;
@@ -341,17 +405,21 @@ body {
   border-radius: 6px;
   background: linear-gradient(#fbeedd, #e6cfae);
 }
+
+/* The slider thumb: a wooden block with grain stripes. Chrome/Safari version, Firefox has its own rule below. */
 #year-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   box-sizing: border-box;
   width: var(--thumb);
   height: 30px;
-  margin-top: -9px;           /* centres the 30px thumb on the 12px track */
+  margin-top: -9px;  /* the negative margin lines the 30px thumb up with the middle of the 12px track */
   border: 2px solid #4f2f16;
   border-radius: 6px;
   background: repeating-linear-gradient(90deg, rgba(90, 50, 20, 0.15) 0 2px, transparent 2px 5px), linear-gradient(#d9a066, #a8733f);
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
 }
+
+/* The same thumb for Firefox. */
 #year-slider::-moz-range-thumb {
   box-sizing: border-box;
   width: var(--thumb);
@@ -361,11 +429,13 @@ body {
   background: linear-gradient(#d9a066, #a8733f);
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
 }
-/* while the dropdown ticks are in charge, the slider thumb is greyed out */
+
+/* When years are ticked in the dropdown the slider isn't in charge, so its thumb is greyed out. */
 #year-slider.multi::-webkit-slider-thumb { filter: grayscale(1) opacity(0.55); }
 #year-slider.multi::-moz-range-thumb     { filter: grayscale(1) opacity(0.55); }
 
-/* the labels sit exactly under the stops of the slider */
+/* The row of year labels under the slider. Each label is placed at the same x as its stop on the slider,
+   calculated from its index (--i), the number of stops (--n) and the thumb width. */
 .year-ticks { position: relative; height: 18px; }
 .year-ticks .tick {
   position: absolute;
@@ -378,11 +448,14 @@ body {
   cursor: pointer;
   opacity: 0.8;
 }
+
+/* The label of the selected year turns white with a shadow and full opacity. */
 .year-ticks .tick.active { opacity: 1; color: #fff3e0; text-shadow: 0 1px 2px #3b2a18; }
 
-/* dropdown */
+/* The dropdown for ticking several years: 124 px wide, at the right end of the bar. */
 .year-dropdown { position: relative; width: 124px; flex-shrink: 0; }
 
+/* The dropdown button, as tall as the wooden panel. */
 .year-dropdown-btn {
   width: 100%;
   height: 72px;
@@ -396,11 +469,12 @@ body {
   cursor: pointer;
 }
 
+/* The list of years. It opens upwards over the map when the dropdown has .open, and scrolls after 200 px. */
 .year-list {
   display: none;
   position: absolute;
   right: 0;
-  bottom: calc(100% + 8px);    /* opens upwards, over the map */
+  bottom: calc(100% + 8px);
   width: 140px;
   max-height: 200px;
   overflow-y: auto;
@@ -409,6 +483,7 @@ body {
 }
 .year-dropdown.open .year-list { display: block; }
 
+/* One row per year: a checkbox and the year. */
 .year-list label {
   display: flex;
   align-items: center;
@@ -417,24 +492,92 @@ body {
   font-size: 13px;
   cursor: pointer;
 }
+
+/* The checkbox, with a brown tick colour. */
 .year-list input { accent-color: #6e4524; width: 15px; height: 15px; margin: 0; cursor: pointer; }
 
-/* ===================== WINDOW MODE: shrunk cards + info windows ===================== */
+/* --- Middle of the map --- */
 
-/* Cards shrink to 0.78 and sit on the middle line of the map, centre y = 512 like the windows,
-   leaving room for a window on each side. Offsets are relative to the stack corner (1125, 171). */
-.card-stack.expanded.compact .card-outer { transition-duration: 0.6s, 0.25s; }
-.card-stack.expanded.compact #chart-spring { transform: translate(-766px, 185px) scale(0.78);    transition-delay: 0s, 0s; }
-.card-stack.expanded.compact #chart-summer { transform: translate(-571.8px, 185px) scale(0.78);  transition-delay: 0s, 0s; }
-.card-stack.expanded.compact #chart-autumn { transform: translate(-377.6px, 185px) scale(0.78);  transition-delay: 0s, 0s; }
-.card-stack.expanded.compact #chart-winter { transform: translate(-183.4px, 185px) scale(0.78);  transition-delay: 0s, 0s; }
+/* An invisible button over the stone circle in the middle of the map: an ellipse of 132 x 72 px centred on (849, 494).
+   Clicking it opens the quick filter menu. */
+#middle-btn {
+  position: absolute;
+  left: 783px;  /* the circle's centre x minus half the button width */
+  top: 458px;  /* the circle's centre y minus half the button height */
+  width: 132px;
+  height: 72px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 6;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
 
-/* the close button follows the card row, so it never sits behind a window */
-.stack-shrink { transition: left 0.5s ease, top 0.5s ease; }
-.card-stack.compact .stack-shrink { left: -20px; top: 168px; }   /* = on the top-right corner of the shrunk winter card, clear of the windows and the filter tile */
+/* Hovering the button, or focusing it with the keyboard, makes the stone circle glow: a soft yellow fill,
+   a cream ring and an orange halo. The default focus outline is removed because the glow replaces it. */
+#middle-btn:hover,
+#middle-btn:focus-visible {
+  background: rgba(255, 214, 102, 0.18);
+  box-shadow: 0 0 0 3px rgba(255, 243, 224, 0.85), 0 0 18px 8px rgba(255, 201, 40, 0.55);
+}
+#middle-btn:focus-visible { outline: none; }
 
-/* the round arrow button at the bottom of the map */
-#compact-toggle {
+/* While the cards, star, stopwatch or menu are open they cover the middle, so the circle stops reacting to clicks. */
+#widget-layer.open #middle-btn,
+#widget-layer.star-open #middle-btn,
+#widget-layer.playtime-open #middle-btn,
+#widget-layer.quick-open #middle-btn { pointer-events: none; }
+
+/* --- Quick filter menu --- */
+
+/* The quick filter menu: a wooden panel of 1280 x 540 px in the middle of the map, with a header along the top,
+   the filter cards on the left below it and the live results on the right.
+   Closed, it is shrunk to 12%, invisible and ignores clicks. It scales from the stone circle, so opening it makes it grow out of the circle.
+   The visibility delay lets the shrink animation finish before the menu disappears. */
+#quick-menu {
+  position: absolute;
+  left: 128px;
+  top: 222px;
+  width: 1280px;
+  height: 540px;
+  display: flex;
+  flex-direction: column;
+  font-family: sans-serif;
+  z-index: 8;
+  visibility: hidden;
+  opacity: 0;
+  transform: scale(0.12);
+  transform-origin: 721px 272px;  /* the stone circle (849, 494) relative to the menu's corner (128, 222) */
+  pointer-events: none;
+  transition: transform 0.55s ease, width 0.55s ease, opacity 0.3s ease, visibility 0s 0.55s;
+}
+
+/* Open: full size, visible and clickable. */
+#widget-layer.quick-open #quick-menu {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition: transform 0.55s ease, width 0.55s ease, opacity 0.3s ease, visibility 0s 0s;
+}
+
+/* Window mode, after the arrow button is pressed: the info windows (340 px wide, at x 20-360 and 1176-1516) slide in on both sides.
+   The menu loses its results column, so it is only 988 px wide, and it is scaled to 0.78 and shifted so its middle
+   lines up with the middle of the map between the windows. */
+#widget-layer.quick-open.windows-open #quick-menu {
+  width: 988px;
+  transform: translate(96px, 20px) scale(0.78);
+}
+
+/* In window mode the results column is hidden (the windows show the results) and the filter grid takes the full width. */
+#widget-layer.windows-open .qf-side { display: none; }
+#widget-layer.windows-open .qf-body { grid-template-columns: 1fr; }
+
+/* The round arrow button at the bottom of the map (x 746, y 874). It is only shown while the menu is open, and it toggles the info windows. */
+#qf-arrow {
   display: none;
   position: absolute;
   left: 746px;
@@ -453,15 +596,253 @@ body {
   pointer-events: auto;
   z-index: 10;
 }
-#widget-layer.open #compact-toggle, #widget-layer.star-open #compact-toggle { display: flex; }
-#compact-toggle svg { transition: transform 0.4s ease; }
-#compact-toggle svg { transform: rotate(180deg); }
-#widget-layer.windows-open #compact-toggle svg,
-#widget-layer.playtime-windows-open #playtime-toggle svg { transform: rotate(0); }
+#widget-layer.quick-open #qf-arrow { display: flex; }
 
-/* the windows */
-/* One band across the map, centred on the same line as the cards (y = 512). The left window and the
-   right column stretch to the same height, so their top and bottom edges line up with each other. */
+/* The arrow icon points down while the menu is on its own (press to show the windows) and turns to point up
+   when the windows are open (press to bring the full menu back). */
+#qf-arrow svg { transition: transform 0.4s ease; transform: rotate(180deg); }
+#widget-layer.windows-open #qf-arrow svg { transform: rotate(0); }
+
+/* The header of the menu: icon, title and subtitle in a row, with a brown line under it. */
+.qf-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 84px;
+  padding: 0 20px;
+  border-bottom: 3px solid #6e4524;
+}
+
+/* The round icon at the left of the header, bigger than the ones in the info windows. */
+.qf-head .win-icon { width: 46px; height: 46px; border-radius: 50%; }
+
+/* The title block takes the free width in the header: a big serif title with a small label above it,
+   which is slightly bigger here than in the info windows. */
+.qf-title { flex: 1; }
+.qf-title h3 { margin: 3px 0 0; font: bold 30px Georgia, serif; }
+#quick-menu .win-kicker { font-size: 11px; }
+
+/* The area under the header: the filter cards on the left and the 292 px results column on the right. */
+.qf-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 292px;
+}
+
+/* The grid of filter cards inside the body. The season card is on top and the six dropdown cards fill the two rows below. */
+.qf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);  /* three columns for the six dropdown cards (3 x 2) */
+  grid-template-rows: auto 1fr 1fr;  /* the season row on top, then two rows of dropdowns */
+  gap: 12px;
+  padding: 14px;
+}
+
+/* One filter card: a translucent cream box with a thin brown border. */
+.qf-card {
+  padding: 12px 14px;
+  border: 2px solid rgba(110, 69, 36, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 244, 224, 0.32);
+}
+
+/* The card title in serif, with its small icon next to it. */
+.qf-card h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: bold 17px Georgia, serif; }
+.qf-ico { display: flex; color: #6e4524; }
+
+/* The season card spans all three columns and puts its title and the season buttons next to each other in one row. */
+.qf-wide { grid-column: 1 / 4; display: flex; align-items: center; gap: 22px; }
+.qf-wide h4 { margin: 0; }
+
+/* The row of season buttons. */
+.qf-pills { display: flex; gap: 8px; }
+
+/* One season button (All, Spring, Summer, Autumn, Winter): cream with a brown border.
+   Hovering lightens it, and the chosen season (.active) turns dark brown with light text.
+   .qf-pill-count is the small play count inside the button. */
+.qf-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 2px solid rgba(110, 69, 36, 0.4);
+  border-radius: 10px;
+  background: rgba(255, 244, 224, 0.75);
+  color: #3b2a18;
+  font: bold 15px sans-serif;
+  cursor: pointer;
+}
+.qf-pill:hover { background: #fff3dc; }
+.qf-pill.active { background: #6b3f1d; border-color: #4b2108; color: #fff3e0; }
+.qf-pill-count { font-size: 12px; opacity: 0.7; }
+
+/* The box of one dropdown inside a card. It is the reference the pop-up is positioned from. */
+.qf-dd { position: relative; }
+
+/* The dropdown button: an orange wooden button with the current choice on the left and an arrow on the right.
+   Long text is cut off with "..." (.qf-dd-text). The button turns dark brown (.active) when something is ticked. */
+.qf-dd-btn {
+  width: 100%;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border: 2px solid #4b2108;
+  border-radius: 10px;
+  background: linear-gradient(#e6aa66, #c8802f);
+  color: #2f1a0a;
+  font: bold 16px sans-serif;
+  cursor: pointer;
+}
+.qf-dd-btn:hover { background: linear-gradient(#f0b673, #d38b38); }
+.qf-dd-btn.active { background: linear-gradient(#8a5a2c, #6b3f1d); color: #fff3e0; }
+.qf-dd-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The pop-up under the dropdown button, with the search box, the list and the clear link. It is hidden until the dropdown has .open.
+   It sticks out 14 px on both sides so it is as wide as the card, and it sits above everything else in the menu. */
+.qf-dd-pop {
+  display: none;
+  position: absolute;
+  top: 48px;
+  left: -14px;
+  right: -14px;
+  z-index: 30;
+  padding: 8px;
+  border: 3px solid #6e4524;
+  border-radius: 12px;
+  background: #f6e4c4;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.qf-dd.open .qf-dd-pop { display: block; }
+
+/* The search box at the top of the pop-up. */
+.qf-dd-search {
+  width: 100%;
+  box-sizing: border-box;
+  height: 38px;
+  padding: 0 10px;
+  border: 2px solid #6e4524;
+  border-radius: 8px;
+  background: #fffaf0;
+  font: 15px sans-serif;
+}
+
+/* The scrollable list of values, at most 160 px tall. */
+.qf-dd-list { list-style: none; margin: 6px 0 0; padding: 0; max-height: 160px; overflow-y: auto; }
+
+/* One value in the list: tick box, name and play count. Hovering tints the row. */
+.qf-opt { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; font-size: 15px; cursor: pointer; }
+.qf-opt:hover { background: rgba(110, 69, 36, 0.16); }
+
+/* The tick box in front of a value. When the value is ticked (.selected) the box turns dark brown and shows a check mark,
+   and the name turns bold. */
+.qf-box {
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 2px solid #6e4524;
+  border-radius: 4px;
+  background: #fffaf0;
+  color: #fff3e0;
+  font-size: 11px;
+  line-height: 12px;
+  text-align: center;
+}
+.qf-opt.selected .qf-box { background: #6b3f1d; }
+.qf-opt.selected .qf-box::after { content: "\2714"; }
+.qf-opt.selected .qf-opt-label { font-weight: bold; }
+
+/* The name takes the free space, and the play count is small and faded at the right. */
+.qf-opt-label { flex: 1; }
+.qf-opt-count { font-size: 12px; opacity: 0.6; }
+
+/* The "Clear this filter" link at the bottom of the pop-up. */
+.qf-dd-clear { margin-top: 6px; padding: 0; border: 0; background: none; color: #7a3b0e; font: bold 13px sans-serif; text-decoration: underline; cursor: pointer; }
+
+/* The ticked values as chips under the dropdown button. They wrap onto more lines and scroll after 52 px. */
+.qf-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; max-height: 52px; overflow-y: auto; }
+
+/* One chip: a dark brown pill with the value name. */
+.qf-chip { display: flex; align-items: center; gap: 4px; padding: 3px 4px 3px 9px; border-radius: 999px; background: #6b3f1d; color: #fff3e0; font: bold 14px sans-serif; }
+
+/* The small round x on a chip that unticks the value. */
+.qf-chip button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 243, 224, 0.25); color: #fff3e0; font: bold 15px Arial, sans-serif; cursor: pointer; }
+
+/* The live results column on the right of the menu, with a brown line on its left and a slightly lighter background.
+   It stacks the heading, the total, the tiles, the recent plays and the clear button from top to bottom. */
+.qf-side {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  border-left: 3px solid #6e4524;
+  background: rgba(255, 244, 224, 0.12);
+}
+
+/* The heading row of the results: the title on the left and the "x/8 active" badge on the right. */
+.qf-live-head { display: flex; justify-content: space-between; align-items: center; }
+.qf-badge { padding: 3px 10px; border: 2px solid rgba(75, 33, 8, 0.5); border-radius: 999px; background: rgba(110, 69, 36, 0.28); font: bold 12px sans-serif; }
+
+/* The big number of matching plays, with a small caption under it. */
+.qf-total { margin-top: 8px; font: bold 46px Georgia, serif; }
+.qf-caption { margin: 2px 0 12px; font-size: 13px; opacity: 0.8; }
+
+/* Two small tiles side by side: the number of games and the player with the most wins. */
+.qf-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.qf-tile { padding: 8px 10px; border: 2px solid rgba(110, 69, 36, 0.28); border-radius: 10px; background: rgba(255, 244, 224, 0.35); }
+.qf-tile strong { display: block; margin-top: 3px; font: bold 20px Georgia, serif; }
+.qf-tile small { font-size: 11px; opacity: 0.7; }
+
+/* The space above the "most recent plays" heading. #quick-menu in the selector makes it win over .win-kicker further down. */
+#quick-menu .qf-recent-title { margin: 16px 0 6px; }
+
+/* The list of the most recent plays: game name on the left, date on the right, and a thin line above each row. */
+.qf-recent { flex: 1; margin: 0; padding: 0; overflow: hidden; list-style: none; }
+.qf-recent li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(75, 43, 22, 0.2); font-size: 13px; }
+.qf-r-name { font-weight: bold; }
+.qf-r-date { font-size: 12px; opacity: 0.7; }
+
+/* The "no plays" notice with a dashed border. It is hidden until there are no matching plays. */
+.qf-empty { display: none; margin-bottom: 12px; padding: 16px 10px; border: 2px dashed rgba(75, 43, 22, 0.35); border-radius: 10px; text-align: center; font-size: 13px; }
+.qf-empty strong { display: block; margin-bottom: 4px; }
+
+/* The "Clear all filters" button at the bottom of the results column. It has the same orange as the dropdown buttons
+   and fades when no filter is on. */
+.qf-clear {
+  height: 42px;
+  border: 2px solid #4b2108;
+  border-radius: 10px;
+  background: linear-gradient(#e6aa66, #c8802f);
+  color: #2f1a0a;
+  font: bold 14px sans-serif;
+  cursor: pointer;
+}
+.qf-clear:disabled { opacity: 0.5; cursor: default; }
+
+/* --- Info windows --- */
+
+/* The cross above the right-hand info window. It is centred over the window and sits 44 px above its top edge
+   (half its width to the left, its own height plus an 8 px gap up), and it is hidden until the windows are open. */
+#win-close {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  margin: -44px 0 0 -18px;
+  pointer-events: auto;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.2s ease, visibility 0s 0.2s;
+}
+
+/* Once the windows are open the cross fades in, just after the windows have arrived. */
+#widget-layer.windows-open #win-close {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.35s ease 0.35s, background 0.2s ease, transform 0.2s ease, visibility 0s 0s;
+}
+
+/* A band across the map, centred on y = 512 like the card row, that holds the left window and the right column.
+   Both columns stretch to the same height so their top and bottom edges line up. Clicks pass through the band except on the windows. */
 #win-band {
   position: absolute;
   left: 20px;
@@ -474,70 +855,43 @@ body {
   z-index: 8;
   pointer-events: none;
 }
+
+/* The left and right columns, 340 px wide, with the windows stacked inside them with a 16 px gap. */
 #win-left, #win-right { width: 340px; display: flex; flex-direction: column; gap: 16px; }
 
+/* The cross is positioned relative to the right column. */
+#win-right { position: relative; }
+
+/* One info window. It fills its column (the two windows on the right share the height equally).
+   Until the arrow button is pressed it is parked 1100 px below the map and hidden. */
 .info-window {
   width: 340px;
-  flex: 1;                 /* the two right windows share their column equally */
+  flex: 1;
   display: flex;
   flex-direction: column;
   padding: 16px 18px 14px;
   font-family: Georgia, "Times New Roman", serif;
   pointer-events: auto;
-  /* parked below the map and hidden until the arrow button is pressed */
   visibility: hidden;
   transform: translateY(1100px);
   transition: transform 0.65s cubic-bezier(0.2, 0.85, 0.25, 1), visibility 0s 0.65s;
 }
+
+/* When the windows are open they slide up into place. */
 #widget-layer.windows-open .info-window {
   visibility: visible;
   transform: translateY(0);
   transition: transform 0.65s cubic-bezier(0.2, 0.85, 0.25, 1), visibility 0s 0s;
 }
+
+/* The two right-hand windows arrive a little later, one after the other. */
 #widget-layer.windows-open #win-players { transition-delay: 0.1s, 0s; }
 #widget-layer.windows-open #win-wins    { transition-delay: 0.2s, 0s; }
 
-#widget-layer.playtime-windows-open #win-band {
-  left: 20px;
-  width: 1496px;
-  top: 512px;
-  height: 500px;
-  z-index: 8;
-}
-
-#widget-layer.playtime-windows-open .info-window {
-  visibility: visible;
-  transform: translateY(0);
-  transition: transform 0.65s cubic-bezier(0.2, 0.85, 0.25, 1), visibility 0s 0s;
-}
-
-#widget-layer.playtime-windows-open #win-players { transition-delay: 0.1s, 0s; }
-#widget-layer.playtime-windows-open #win-wins    { transition-delay: 0.2s, 0s; }
-
-#widget-layer.playtime-windows-open #win-left {
-  position: absolute;
-  left: 0;
-  width: 380px;
-  height: 500px;
-}
-
-#widget-layer.playtime-windows-open #win-right {
-  position: absolute;
-  right: 0;
-  width: 340px;
-  height: 500px;
-}
-
-#widget-layer.playtime-windows-open #win-games {
-  width: 380px;
-}
-
-#widget-layer.playtime-windows-open #win-players,
-#widget-layer.playtime-windows-open #win-wins {
-  width: 340px;
-}
-
+/* The top of a window: the icon on the left, and the title, label and subtitle on the right. */
 .info-window header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+
+/* The small orange square icon in a window header. */
 .win-icon {
   flex-shrink: 0;
   width: 40px;
@@ -549,24 +903,46 @@ body {
   border-radius: 10px;
   background: linear-gradient(#d9a066, #a8733f);
 }
+
+/* The window title. */
 .info-window h3 { margin: 2px 0 2px; font-size: 21px; line-height: 1.2; color: #3b2a18; }
+
+/* The tiny spaced-out label above the title, and the subtitle under it that shows the current filter scope. */
 .win-kicker { margin: 0; font: bold 9px sans-serif; letter-spacing: 0.18em; color: #6e4524; }
 .win-sub    { margin: 0; font: 11px sans-serif; opacity: 0.75; }
 
+/* The ranking list. The rows are spread evenly over the height of the window. */
 .win-list { list-style: none; margin: 0; padding: 0; flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
+
+/* One row of the ranking: the rank number on the left, and the name, value and bar next to it. */
 .win-list li { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; }
+
+/* The rank number at the start of a row. */
 .win-rank { width: 14px; padding-top: 2px; font-size: 12px; opacity: 0.7; }
+
+/* The name, value and bar area of a row. It can shrink so long names get cut off. */
 .win-body { flex: 1; min-width: 0; }
+
+/* The line with the name on the left and the value on the right. Long names are cut off with "...". */
 .win-top  { display: flex; justify-content: space-between; gap: 8px; }
 .win-name { font-size: 14px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The value, for example "12 plays", which always stays fully visible. */
 .win-val  { flex-shrink: 0; font: bold 12px sans-serif; padding-top: 2px; }
+
+/* The bar under a row: a dark track with the filled part inside it. windows.js sets the width of the filled part
+   as a share of the top entry. */
 .win-bar  { height: 7px; margin-top: 4px; border-radius: 4px; background: rgba(60, 30, 10, 0.25); overflow: hidden; }
-.win-bar div { width: 0; height: 100%; border-radius: 4px; background: #7a4a22; }
+.win-bar div { height: 100%; border-radius: 4px; background: #7a4a22; }
+
+/* The italic message shown when there are no plays for the current selection. */
 .win-list .win-empty { font: italic 13px sans-serif; opacity: 0.7; padding: 8px 0; }
 
-/* ===================== FILTER PANELS (top-right corner of the map) ===================== */
-/* One wooden panel per active filter, joined into a strip. The first panel sits in the corner,
-   the next ones attach to its left (row-reverse). No filters = no panels = nothing on screen. */
+/* --- Filter panels --- */
+
+/* The strip in the top-right corner of the map that holds one wooden panel per active filter.
+   row-reverse puts the first panel in the corner and adds the next ones to its left.
+   With no filters on, the strip is empty. It ignores clicks. */
 #filter-strip {
   position: absolute;
   top: 14px;
@@ -578,32 +954,46 @@ body {
   font-family: sans-serif;
 }
 
+/* One filter panel: a wooden bar 46 px tall with an icon and text. New panels slide in with the panel-in animation. */
 .filter-panel {
   height: 46px;
   padding: 0 12px;
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: 0;              /* square where panels touch... */
+  border-radius: 0;  /* square where panels touch */
   color: #3b2a18;
   animation: panel-in 0.35s ease;
 }
-.filter-panel + .filter-panel { margin-right: -3px; }          /* overlap one border, so they share a seam */
-.filter-panel:first-child { border-radius: 0 10px 10px 0; }    /* ...rounded only at the two ends of the strip */
+
+/* Neighbouring panels overlap by one border width so they share a single seam. */
+.filter-panel + .filter-panel { margin-right: -3px; }
+
+/* Rounded corners only at the two ends of the strip, or on all corners when there is just one panel. */
+.filter-panel:first-child { border-radius: 0 10px 10px 0; }
 .filter-panel:last-child  { border-radius: 10px 0 0 10px; }
 .filter-panel:only-child  { border-radius: 10px; }
+
+/* The slide-in: a panel fades in while moving 14 px in from the right. */
 @keyframes panel-in { from { opacity: 0; transform: translateX(14px); } }
 
-.filter-panel > img { width: 30px; height: 30px; filter: drop-shadow(0 0 2px rgba(255, 246, 229, 0.95)); } /* keeps the logo readable on the wood */
+/* The season logo on the season panel, with a pale glow so it stays readable on the wood. */
+.filter-panel > img { width: 30px; height: 30px; filter: drop-shadow(0 0 2px rgba(255, 246, 229, 0.95)); }
+
+/* The line icon on the other filter panels. */
 .fp-icon { display: flex; }
 .fp-icon svg { width: 22px; height: 22px; }
+
+/* The two-line text on a panel: a small spaced-out label above the bold value. */
 .fp-text { display: flex; flex-direction: column; }
 .fp-label { font-size: 8px; font-weight: bold; letter-spacing: 0.14em; color: #6e4524; }
 .fp-value { font-size: 14px; font-weight: bold; line-height: 1.15; white-space: nowrap; }
 
-/* ===================== COMPLEXITY STAR ===================== */
-/* the star in the bottom-left sandpit (pit spans x 146-305, y 734-840). The box is 244 px, so the star itself is ~190 px wide:
-   bigger than the pit, like the other map icons. The star's middle circle is at map (225, 797). */
+/* --- Complexity star --- */
+
+/* The small star in the bottom-left sandpit (the sand patch spans x 146-305, y 734-840). The box is 244 px, so the star
+   is about 190 px wide, bigger than the patch like the other map icons.
+   Only the star shapes take clicks, not the empty corners of the box. */
 #star-pin {
   position: absolute;
   left: 103px;
@@ -614,61 +1004,89 @@ body {
   border: 0;
   background: none;
   cursor: pointer;
-  pointer-events: none;                       /* only the star itself is clickable, not the empty corners of its box */
+  pointer-events: none;
   transition: transform 0.25s ease;
 }
+
+/* Hovering the small star makes it grow a little and tilt. */
 #star-pin:hover { transform: scale(1.06) rotate(6deg); }
+
+/* The star drawing fills the box and has a drop shadow so it stands out on the map. */
 #star-pin svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
-/* one look for BOTH stars: the small one in the sandpit and the big pop-up share these values */
+
+/* Colours shared by both stars, the small one in the sandpit and the big pop-up. */
 :root {
-  --star-base: #f6c453;       /* fragment colour */
-  --star-hover: #ffd978;
-  --star-line: #4a2a12;       /* outline */
-  --star-stroke: 16;          /* outline thickness (in star units, so it scales with the star) */
-  --star-hub: #ffeab5;        /* centre circle */
-  --star-hub-hover: #fff6dc;
-  --star-fill: #c47f00;       /* the darker fill that shows how many plays (on both stars) */
+  --star-base: #f6c453;       /* light yellow fragments */
+  --star-hover: #ffd978;      /* fragment colour on hover (big star) */
+  --star-line: #4a2a12;       /* outline colour */
+  --star-stroke: 16;          /* outline thickness in star units, so it scales with the star */
+  --star-hub: #ffeab5;        /* centre circle colour */
+  --star-hub-hover: #fff6dc;  /* centre circle colour on hover (big star) */
+  --star-fill: #c47f00;       /* the darker fill that shows the share of plays */
 }
 
-/* the pop-up: 600 x 600 centred on the star's middle circle (768, 540). Closed, it is a small star over the sandpit. */
+/* The big star pop-up: 600 x 600 px, centred on the middle of the map (768, 540). While closed it is shrunk to 30%,
+   moved onto the small star in the sandpit, invisible and ignoring clicks, so opening it makes the star grow out of the sandpit. */
 #star-popup {
   position: absolute;
   left: 468px;
   top: 240px;
   width: 600px;
   height: 600px;
-  pointer-events: none;                       /* the empty space around the star lets clicks through to the map */
+  pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transform: translate(-543px, 257px) scale(0.3);    /* = from the star in the sandpit (225, 797) */
+  transform: translate(-543px, 257px) scale(0.3);  /* closed position: on top of the small star at (225, 797) */
   transition: transform 0.6s cubic-bezier(0.2, 0.85, 0.25, 1), opacity 0.35s ease, visibility 0s 0.6s;
 }
+
+/* Open: full size, visible and clickable. */
 #star-popup.open {
   opacity: 1;
   visibility: visible;
   transform: none;
   transition: transform 0.6s cubic-bezier(0.2, 0.85, 0.25, 1), opacity 0.35s ease, visibility 0s 0s;
 }
-/* window mode (the arrow button): the star shrinks a little and moves down, the info windows slide in */
-#star-popup.open.compact { transform: translateY(34px) scale(0.82); }
+
+/* The big star drawing inside the pop-up. overflow: visible keeps the tips from being cut off. */
 #star-svg { width: 100%; height: 100%; overflow: visible; }
 
-/* both stars (the pop-up and the small one in the sandpit) are drawn by the same code and share this look */
-.star-root .base, .star-root .star-hub { pointer-events: all; cursor: pointer; }   /* a click on the small star bubbles up to its button */
+/* Both stars are drawn by the same code (complexity.js) and share the rules below.
+   Only the coloured fragments and the centre circle take clicks, and a click on the small star bubbles up to its button.
+   The fills, green lines and outlines ignore the mouse so clicks land on the fragment underneath them. */
+.star-root .base, .star-root .star-hub { pointer-events: all; cursor: pointer; }
 .star-root .fill, .star-root .won, .star-root .outline { pointer-events: none; }
+
+/* The light yellow fragment colour. It fades smoothly when the selection changes. */
 .star-root .base    { fill: var(--star-base); transition: fill 0.3s ease, fill-opacity 0.3s ease; }
+
+/* A fragment turns lighter under the mouse (big star only). */
 #star-svg .base:hover { fill: var(--star-hover); }
+
+/* The dark yellow fill that grows from the centre and shows the share of plays in that range. */
 .star-root .fill    { fill: var(--star-fill); transition: fill-opacity 0.3s ease; }
+
+/* The brown outline drawn on top of every fragment. */
 .star-root .outline { fill: none; stroke: var(--star-line); stroke-width: var(--star-stroke); stroke-linejoin: round; }
+
+/* The dotted green line that marks the share of plays won. It is invisible until .show is added. */
 .star-root .won     { stroke: #2fbf71; stroke-width: 6; stroke-dasharray: 9 7; opacity: 0; transition: opacity 0.3s ease; }
 .star-root .won.show { opacity: 1; }
-#star-pin .won { display: none; }   /* too small to read at this size */
-/* once something is selected, the other fragments turn see-through: the light yellow AND the dark yellow get
-   the same setting, and the green line only stays on the fragments that are not see-through */
+
+/* The green lines are left out of the small star because they would be unreadable at that size. */
+#star-pin .won { display: none; }
+
+/* Once something is selected, the fragments that aren't selected fade out: both the light yellow and the dark yellow,
+   so the dark fill fades with them. */
 .star-root .base.dim, .star-root .fill.dim { fill-opacity: 0.12; }
+
+/* The centre circle (click it to clear the selection): a pale fill with the same outline as the fragments. */
 .star-root .star-hub { fill: var(--star-hub); stroke: var(--star-line); stroke-width: var(--star-stroke); transition: fill 0.2s ease; }
+
+/* The centre circle turns lighter under the mouse (big star only). */
 #star-svg .star-hub:hover { fill: var(--star-hub-hover); }
 
+/* The cross at the top-right of the pop-up. The pop-up ignores clicks, so the button turns them back on. */
 #star-close {
   position: absolute;
   top: 40px;
@@ -676,7 +1094,10 @@ body {
   pointer-events: auto;
 }
 
-/* ===================== PLAYTIME STOPWATCH ===================== */
+/* --- Play time stopwatch --- */
+
+/* The stopwatch: a 440 x 500 px drawing scaled to 48% and parked on the left side of the map (top-left corner at 85, 425).
+   Opening it moves, scales and fades the whole widget (see the .open rule below). */
 .playtime-widget {
   position: absolute;
   left: 85px;
@@ -696,6 +1117,8 @@ body {
               opacity 0.3s ease;
 }
 
+/* Open: moved to the middle of the map, scaled up to 84%, fully opaque and raised above the other widgets.
+   The cursor goes back to normal because the markers are now the clickable parts. */
 .playtime-widget.open {
   left: 583px;
   top: 302px;
@@ -705,10 +1128,12 @@ body {
   z-index: 11;
 }
 
+/* Hovering the parked stopwatch makes it bounce once, at its parked size. */
 .playtime-widget:not(.open):hover {
   animation: playtime-hover-spring 0.7s ease-out;
 }
 
+/* The bounce: up 18 px, down 4 px, up 5 px, then back to rest. */
 @keyframes playtime-hover-spring {
   0%, 100% { transform: scale(0.48) translateY(0); }
   35% { transform: scale(0.48) translateY(-18px); }
@@ -716,8 +1141,10 @@ body {
   82% { transform: scale(0.48) translateY(-5px); }
 }
 
+/* While the stopwatch is open the layer is raised above the dragon, like it is for the cards, star and menu. */
 #widget-layer.playtime-open { z-index: 9; }
 
+/* The stopwatch drawing fills the widget and casts a soft shadow underneath. */
 #playtime-svg {
   display: block;
   width: 100%;
@@ -726,21 +1153,7 @@ body {
   filter: drop-shadow(0 5px 3px rgba(0, 0, 0, 0.35));
 }
 
-.playtime-shadow { fill: #3b2411; opacity: 0.32; }
-.playtime-crown-stem { fill: #d96700; stroke: #4b2108; stroke-width: 9; }
-.playtime-crown-cap { fill: #c95700; stroke: #4b2108; stroke-width: 9; }
-.playtime-knob-stem { fill: none; stroke: #4b2108; stroke-width: 16; stroke-linecap: round; }
-.playtime-knob-base { fill: #4b2108; }
-.playtime-knob-cap { fill: #c95700; }
-.playtime-case-shadow { fill: #4b2108; }
-.playtime-bezel { fill: #a94c00; stroke: #6a2c00; stroke-width: 5; }
-.playtime-dial { fill: #ffcb28; }
-.playtime-face { fill: #fff6df; }
-.playtime-tick { stroke: #8d3f0b; stroke-width: 5; stroke-linecap: round; }
-.playtime-tick.major { stroke-width: 8; }
-.playtime-hour-hand-shape { fill: #8d3f0b; stroke: #4b2108; stroke-width: 3; stroke-linejoin: round; }
-.playtime-minute-hand-shape { fill: #a82418; stroke: #4b2108; stroke-width: 4; stroke-linejoin: round; }
-
+/* The cross at the top-right of the stopwatch. It is only shown while the stopwatch is open. */
 .playtime-close {
   display: none;
   position: absolute;
@@ -753,59 +1166,28 @@ body {
   display: block;
 }
 
-#playtime-toggle {
-  display: none;
-  position: absolute;
-  left: 746px;
-  top: 744px;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 3px solid #fff3e0;
-  border-radius: 50%;
-  background: linear-gradient(#d9a066, #a8733f);
-  color: #3b2a18;
-  box-shadow: 0 0 0 2px #3b2a18, 0 3px 6px rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-  pointer-events: auto;
-  z-index: 12;
-}
-
-#widget-layer.playtime-open #playtime-toggle {
-  display: flex;
-}
-
-#widget-layer.playtime-hover-visible #playtime-toggle {
-  visibility: hidden;
-}
-
-#playtime-toggle svg {
-  transform: rotate(180deg);
-  transition: transform 0.4s ease;
-}
-
+/* The time markers around the dial (15, 30, 45, 60, 1.5h, 2h+). They are clickable and have no browser focus outline. */
 .playtime-marker {
   cursor: pointer;
   outline: none;
 }
 
+/* The yellow glow behind a marker. It is hidden by default. */
 .playtime-marker-glow {
   fill: #ffc629;
   opacity: 0;
-  filter: url(#playtime-marker-shadow);
   transition: opacity 0.2s ease;
 }
 
-.playtime-marker-hit { fill: transparent; }
-
+/* The glow shows on the selected marker, and on hover or keyboard focus while the stopwatch is open. */
 .playtime-marker.selected .playtime-marker-glow,
 .playtime-widget.open .playtime-marker:hover .playtime-marker-glow,
 .playtime-widget.open .playtime-marker:focus .playtime-marker-glow {
   opacity: 0.72;
 }
 
+/* The number on a marker: bold dark brown serif text centred on the marker. Clicks pass through to the marker,
+   and the text gets darker when the marker is selected. */
 .playtime-marker-label {
   fill: #4a2412;
   font: bold 20px Georgia, "Times New Roman", serif;
@@ -818,16 +1200,19 @@ body {
   fill: #321708;
 }
 
+/* The crown on top of the stopwatch. Clicking it clears the play time filter. */
 .playtime-reset {
   cursor: pointer;
   outline: none;
 }
 
+/* The crown turns a brighter orange on hover or keyboard focus. */
 .playtime-reset:focus .playtime-crown,
 .playtime-reset:hover .playtime-crown {
   fill: #f27b00;
 }
 
+/* The long hand (plays) and the short hand (wins) show a pointer cursor to signal that they can be hovered. */
 .playtime-hand {
   cursor: pointer;
 }
@@ -836,6 +1221,7 @@ body {
   cursor: pointer;
 }
 
+/* An invisible 22 px wide line along each hand, so the thin hands are easy to hover. */
 .playtime-hand-hitarea {
   fill: transparent;
   stroke: transparent;
@@ -845,22 +1231,24 @@ body {
   cursor: pointer;
 }
 
+/* The caps in the middle of the dial where the hands meet ignore the mouse. */
 .playtime-hand-hub {
   pointer-events: none;
 }
 
-.playtime-hand-hub-shadow { fill: #4b2108; }
-.playtime-hand-hub-center { fill: #ffca22; }
-
+/* Keyboard focus on a hand: the default browser outline is removed. */
 .playtime-hand:focus, .playtime-hour-hand:focus {
   outline: none;
 }
 
+/* A focused hand gets a yellow glow instead (but not the invisible hit area). */
 .playtime-hand:focus path:not(.playtime-hand-hitarea),
 .playtime-hour-hand:focus path:not(.playtime-hand-hitarea) {
   filter: drop-shadow(0 0 4px #ffc629);
 }
 
+/* The card under the stopwatch with the 5 most recent plays or the top 3 opponents beaten. It is hidden until a hand is hovered,
+   then .visible shows it. It sits just below the 500 px tall widget and is as wide as it (440 px). */
 .playtime-hover-card {
   display: none;
   position: absolute;
@@ -877,6 +1265,7 @@ body {
   display: block;
 }
 
+/* The heading row of the card: the title on the left and the play or win count on the right. */
 .playtime-hover-card header {
   display: flex;
   align-items: baseline;
@@ -885,6 +1274,7 @@ body {
   margin-bottom: 8px;
 }
 
+/* The card title, in spaced-out capitals. */
 .playtime-hover-card h3 {
   margin: 0;
   color: #4b2b16;
@@ -892,17 +1282,20 @@ body {
   letter-spacing: 0.12em;
 }
 
+/* The count at the right of the heading. */
 #playtime-hover-count {
   flex-shrink: 0;
   font: bold 16px sans-serif;
 }
 
+/* The list inside the card: one row per play or opponent. */
 #playtime-hover-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+/* One row: rank, name and detail on one line, with a thin line above it. */
 #playtime-hover-list li {
   display: flex;
   align-items: baseline;
@@ -912,6 +1305,7 @@ body {
   font-size: 19px;
 }
 
+/* The rank number at the start of a row. */
 .playtime-hover-rank {
   width: 20px;
   flex-shrink: 0;
@@ -919,6 +1313,7 @@ body {
   opacity: 0.7;
 }
 
+/* The game or opponent name takes the free space and is cut off with "..." when it is too long. */
 .playtime-hover-name {
   flex: 1;
   min-width: 0;
@@ -928,12 +1323,14 @@ body {
   white-space: nowrap;
 }
 
+/* The date or win count at the end of a row. */
 .playtime-hover-detail {
   flex-shrink: 0;
   font: 16px sans-serif;
   opacity: 0.8;
 }
 
+/* The italic message shown when there is nothing to list. */
 #playtime-hover-list .playtime-hover-empty {
   font-style: italic;
   opacity: 0.75;

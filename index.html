@@ -50,9 +50,6 @@
                 </div>
                 <button id="playtime-close" class="playtime-close" type="button" aria-label="Close playtime filter">&times;</button>
             </div>
-            <button id="playtime-toggle" class="playtime-toggle" aria-label="Show playtime data" aria-expanded="false">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
-            </button>
 
             <!-- complexity star: the star in the bottom-left sandpit opens the big one -->
             <button id="star-pin" aria-label="Open the complexity star"><svg viewBox="-390 -390 780 780"></svg></button>
@@ -61,8 +58,54 @@
                 <button id="star-close" aria-label="Close">&times;</button>
             </div>
 
-            <!-- arrow button: shrinks the cards and brings in the info windows -->
-            <button id="compact-toggle" aria-label="Show or hide the info windows" aria-expanded="false">
+            <!-- the stone circle in the middle of the map: click it to open the quick filter menu (below).
+                 It is invisible, a click target laid over the circle. The dragon walks over to it, like the "Midden" button. -->
+            <button id="middle-btn" title="Open the quick filters"></button>
+
+            <!-- quick filter menu: grows out of the stone circle (open it by clicking the circle).
+                 Only the titles and the structure live here: the dropdowns, the season buttons and the live
+                 results are filled in by js/quickfilter.js. -->
+            <div id="quick-menu" class="wood">
+                <header class="qf-head">
+                    <div class="win-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/></svg></div>
+                    <div class="qf-title"><p class="win-kicker">CENTRAL CROWN STONE</p><h3>All filters in one view</h3></div>
+                    <button id="qf-close" title="Close">&times;</button>
+                </header>
+
+                <div class="qf-body">
+                    <!-- left: the filters -->
+                    <div class="qf-grid">
+                        <section class="qf-card qf-wide" id="qf-season">
+                            <h4><span class="qf-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M9 15l2 2 4-4"/></svg></span>Season</h4>
+                            <div class="qf-pills"></div>
+                        </section>
+                        <section class="qf-card" id="qf-playtime"><h4><span class="qf-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Play time</h4><div class="qf-dd"></div></section>
+                        <section class="qf-card" id="qf-complexity"><h4><span class="qf-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 16.8 6.4 20.1l1.4-6.3L3 9.5l6.4-.6z"/></svg></span>Complexity</h4><div class="qf-dd"></div></section>
+                        <section class="qf-card" id="qf-players"><h4><span class="qf-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></span>Players</h4><div class="qf-dd"></div></section>
+                        <section class="qf-card" id="qf-locations"><h4><span class="qf-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>Location</h4><div class="qf-dd"></div></section>
+                        <section class="qf-card" id="qf-themes"><h4><span class="qf-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h8l10 10-8 8L3 11z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span>Theme</h4><div class="qf-dd"></div></section>
+                        <section class="qf-card" id="qf-mechanics"><h4><span class="qf-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></svg></span>Mechanic</h4><div class="qf-dd"></div></section>
+                    </div>
+
+                    <!-- right: what is left over with these filters -->
+                    <aside class="qf-side">
+                        <div class="qf-live-head"><p class="win-kicker">LIVE RESULTS</p><span id="qf-active" class="qf-badge">0/8 active</span></div>
+                        <div id="qf-total" class="qf-total">0</div>
+                        <p class="qf-caption">matching plays</p>
+                        <div class="qf-tiles">
+                            <div class="qf-tile"><p class="win-kicker">GAMES</p><strong id="qf-games">0</strong><small>different games</small></div>
+                            <div class="qf-tile"><p class="win-kicker">LEADER</p><strong id="qf-leader">&mdash;</strong><small id="qf-leader-sub">most wins</small></div>
+                        </div>
+                        <p class="win-kicker qf-recent-title">RECENT IN THIS SELECTION</p>
+                        <ol id="qf-recent" class="qf-recent"></ol>
+                        <div id="qf-empty" class="qf-empty"><strong>No matching results</strong><span>Broaden one or more filters.</span></div>
+                        <button id="qf-clear" class="qf-clear">Clear all filters</button>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- arrow button: brings in the info windows on both sides (the menu shrinks to fit between them) -->
+            <button id="qf-arrow" title="Show or hide the info windows">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
             </button>
 
@@ -78,6 +121,7 @@
                 </aside>
             </div>
             <div id="win-right">
+                <button id="win-close" type="button" aria-label="Close the info windows">&times;</button>
                 <aside id="win-players" class="info-window wood">
                     <header>
                         <div class="win-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M8 21l1.5-8h5L16 21zM9.5 13h5"/></svg></div>
@@ -136,5 +180,6 @@
     <script src="js/filter.js"></script>
     <script src="js/playtime.js"></script>
     <script src="js/complexity.js"></script>
+    <script src="js/quickfilter.js"></script>
 </body>
 </html>
